@@ -17,8 +17,75 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_lifecycle REQUIRED)
+find_package(hardware_interface REQUIRED)
+find_package(controller_interface REQUIRED)
+find_package(pluginlib REQUIRED)
+
+
+
+##
+
+add_library(rvim_ros2_controllers_experimental
+  SHARED
+  src/hand_guide_position_controller.cpp
+)
+
+target_include_directories(rvim_ros2_controllers_experimental PRIVATE include)
+
+ament_target_dependencies(rvim_ros2_controllers_experimental
+  rclcpp
+  rclcpp_lifecycle
+  controller_interface
+  pluginlib
+)
+
+pluginlib_export_plugin_description_file(controller_interface rvim_ros2_controllers_experimental.xml)
+
+install(
+  DIRECTORY include/
+  DESTINATION include
+)
+
+install(
+  TARGETS rvim_ros2_controllers_experimental
+  RUNTIME DESTINATION bin
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+)
+
+if (BUILD_TESTING)
+  find_package(ament_cmake_gmock REQUIRED)
+  find_package(controller_manager REQUIRED)
+  find_package(ros2_control_test_assets REQUIRED)
+
+  ament_add_gmock(
+    test_load_hand_guide_position_controller
+    test/test_load_hand_guide_position_controller.cpp
+  )
+  target_include_directories(test_load_hand_guide_position_controller PRIVATE include)
+  ament_target_dependencies(test_load_hand_guide_position_controller
+    rclcpp
+    hardware_interface
+    controller_manager
+    ros2_control_test_assets
+  )
+endif ()
+
+ament_export_dependencies(
+  rclcpp
+  rclcpp_lifecycle
+  controller_interface
+  pluginlib
+)
+
+ament_export_include_directories(
+  include
+)
+
+ament_export_libraries(
+  rvim_ros2_controllers_experimental
+)
 
 ament_package()

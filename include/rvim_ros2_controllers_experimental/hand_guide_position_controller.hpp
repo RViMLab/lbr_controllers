@@ -1,8 +1,9 @@
+#pragma once
+
 #include <vector>
 #include <string>
 
 #include <controller_interface/controller_interface.hpp>
-
 
 // follow http://control.ros.org/ros2_controllers/doc/writing_new_controller.html
 // see forward command controller for an example: https://github.com/ros-controls/ros2_controllers/blob/foxy/forward_command_controller/include/forward_command_controller/forward_command_controller.hpp
@@ -13,12 +14,11 @@ namespace rvim_ros2_controllers_experimental {
 
     class HandGuidePositionController : public controller_interface::ControllerInterface {
         public:
-            HandGuidePositionController();
-
+            HandGuidePositionController() = default;
 
             controller_interface::return_type init(const std::string& controller_name) override;
-            controller_interface::InterfaceConfiguration command_interface_configuration() override;
-            controller_interface::InterfaceConfiguration state_interface_configuration() override;
+            controller_interface::InterfaceConfiguration command_interface_configuration() const override;
+            controller_interface::InterfaceConfiguration state_interface_configuration() const override;
 
             CallbackReturn on_configure(const rclcpp_lifecycle::State& previous_state) override;
             CallbackReturn on_activate(const rclcpp_lifecycle::State& previous_state) override;
@@ -32,4 +32,5 @@ namespace rvim_ros2_controllers_experimental {
     };
 
 }  // end of namespace rvim_ros2_controllers_experimental
+
 
