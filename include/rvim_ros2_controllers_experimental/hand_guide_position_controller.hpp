@@ -49,6 +49,9 @@ namespace rvim_ros2_controllers_experimental {
 
             std::string chain_root_;
             std::string chain_tip_;
+
+            std::vector<double> prev_update_ = std::vector<double>(7, 0.);
+            double alpha_ = 0.97;
     };
 
 }  // end of namespace rvim_ros2_controllers_experimental

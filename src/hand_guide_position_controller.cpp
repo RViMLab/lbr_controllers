@@ -122,17 +122,22 @@ namespace rvim_ros2_controllers_experimental {
     controller_interface::return_type HandGuidePositionController::update() {
 
         // noise filter!
+        // xi+1 = alpha*xi-1 + (1-alpha)*xi;
 
         // safety set 0!
+        std::vector<double> update(prev_update_.size(), 0.);
         for (std::size_t i = 0; i<command_interfaces_.size(); i++) {
-            // const auto& et = external_torque_interfaces_[i].get().get_value();
-            // if (std::abs(et) > 4.) {
-            //     RCLCPP_INFO(node_->get_logger(), "et [%zu]: %f", i, et);
-            //     auto sign = double(std::signbit(et));
-            //     command_interfaces_[i].set_value(position_interfaces_[i].get().get_value() - sign*0.005);
-            // } else {
-                command_interfaces_[i].set_value(position_interfaces_[i].get().get_value());
-            // }
+            const auto& et = external_torque_interfaces_[i].get().get_value();
+
+            double sign = 0.;
+            if (std::abs(et) > 2.) {
+                sign = std::signbit(et) ? -1. : 1.;
+            } 
+
+            update[i] = alpha_*prev_update_[i] + (1.-alpha_)*sign*0.002;
+            prev_update_[i] = update[i];
+
+            command_interfaces_[i].set_value(position_interfaces_[i].get().get_value() + update[i]);
         }
 
         // RCLCPP_INFO(node_->get_logger(), "position: %f, external torque: %f", position_interfaces_[0].get().get_value(), external_torque_interfaces_[0].get().get_value());
