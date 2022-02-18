@@ -1,0 +1,26 @@
+controller_manager:
+  ros__parameters:
+    update_rate: null
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    hand_guide_position_controller:
+      type: rvim_ros2_controllers_experimental/HandGuidePositionController
+
+hand_guide_position_controller:
+  ros__parameters:
+    joints:
+      - lbr_joint_0
+      - lbr_joint_1
+      - lbr_joint_2
+      - lbr_joint_3
+      - lbr_joint_4
+      - lbr_joint_5
+      - lbr_joint_6
+    chain_root: lbr_link_0
+    chain_tip: lbr_link_ee
+    command_interface: position
+    state_interfaces: 
+      - position
+      - external_torque
