@@ -10,6 +10,9 @@
 #include <qpOASES/QProblem.hpp>
 #include <kdl_parser/kdl_parser.hpp>
 #include <kdl/chain.hpp>
+#include <kdl/chainjnttojacsolver.hpp>
+
+#include <damped_least_squares.hpp>
 
 // follow http://control.ros.org/ros2_controllers/doc/writing_new_controller.html
 // see forward command controller for an example: https://github.com/ros-controls/ros2_controllers/blob/foxy/forward_command_controller/include/forward_command_controller/forward_command_controller.hpp
@@ -44,14 +47,24 @@ namespace rvim_ros2_controllers_experimental {
             std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface>> position_interfaces_;
             std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface>> external_torque_interfaces_;
 
+            // KDL
             KDL::Tree tree_;
             KDL::Chain kdl_chain_;
 
             std::string chain_root_;
             std::string chain_tip_;
 
+            KDL::JntArray q_;
+            KDL::Jacobian J_;
+            std::unique_ptr<KDL::ChainJntToJacSolver> jac_solver_;
+
+            double th_f_=2.;
+            double th_d_=1.;
+
+            Eigen::VectorXd dq_ = Eigen::VectorXd::Zero(7);
+
             std::vector<double> prev_update_ = std::vector<double>(7, 0.);
-            double alpha_ = 0.97;
+            double alpha_ = 0.98;
     };
 
 }  // end of namespace rvim_ros2_controllers_experimental

@@ -26,15 +26,23 @@ find_package(qpoases_vendor REQUIRED)
 find_package(orocos_kdl REQUIRED)
 find_package(kdl_parser REQUIRED)
 find_package(urdf REQUIRED)
+find_package(eigen3_cmake_module REQUIRED)
+find_package(Eigen3 REQUIRED)
 
 ##
-
 add_library(rvim_ros2_controllers_experimental
   SHARED
   src/hand_guide_position_controller.cpp
 )
 
-target_include_directories(rvim_ros2_controllers_experimental PRIVATE include)
+target_include_directories(
+  rvim_ros2_controllers_experimental 
+  PUBLIC 
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+  PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src    
+)
 
 ament_target_dependencies(rvim_ros2_controllers_experimental
   rclcpp
@@ -45,6 +53,7 @@ ament_target_dependencies(rvim_ros2_controllers_experimental
   orocos_kdl
   kdl_parser
   urdf
+  Eigen3
 )
 
 pluginlib_export_plugin_description_file(controller_interface rvim_ros2_controllers_experimental.xml)
