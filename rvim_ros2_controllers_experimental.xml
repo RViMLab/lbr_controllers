@@ -1,7 +1,0 @@
-<library path="rvim_ros2_controllers_experimental">
-  <class name="rvim_ros2_controllers_experimental/HandGuidePositionController" type="rvim_ros2_controllers_experimental::HandGuidePositionController" base_class_type="controller_interface::ControllerInterface">
-    <description>
-      Some description
-    </description>
-  </class>
-</library>

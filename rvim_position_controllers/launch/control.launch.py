@@ -28,7 +28,7 @@ def generate_launch_description():
 
     # launch controller manager, robot_description & controller configurations
     controller_configurations = PathJoinSubstitution([
-        FindPackageShare("rvim_ros2_controllers_experimental"),
+        FindPackageShare("rvim_position_controllers"),
         "config/sample_config.yml"
     ])
 

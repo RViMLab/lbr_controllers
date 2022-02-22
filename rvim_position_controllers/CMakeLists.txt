@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(rvim_ros2_controllers_experimental)
+project(rvim_position_controllers)
 
 # Default to C99
 if(NOT CMAKE_C_STANDARD)
@@ -30,13 +30,13 @@ find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3 REQUIRED)
 
 ##
-add_library(rvim_ros2_controllers_experimental
+add_library(rvim_position_controllers
   SHARED
   src/hand_guide_position_controller.cpp
 )
 
 target_include_directories(
-  rvim_ros2_controllers_experimental 
+  rvim_position_controllers 
   PUBLIC 
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
@@ -44,7 +44,7 @@ target_include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/src    
 )
 
-ament_target_dependencies(rvim_ros2_controllers_experimental
+ament_target_dependencies(rvim_position_controllers
   rclcpp
   rclcpp_lifecycle
   controller_interface
@@ -56,7 +56,7 @@ ament_target_dependencies(rvim_ros2_controllers_experimental
   Eigen3
 )
 
-pluginlib_export_plugin_description_file(controller_interface rvim_ros2_controllers_experimental.xml)
+pluginlib_export_plugin_description_file(controller_interface rvim_position_controllers.xml)
 
 install(
   DIRECTORY include/
@@ -69,7 +69,7 @@ install(
 )
 
 install(
-  TARGETS rvim_ros2_controllers_experimental
+  TARGETS rvim_position_controllers
   RUNTIME DESTINATION bin
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -109,7 +109,7 @@ ament_export_include_directories(
 )
 
 ament_export_libraries(
-  rvim_ros2_controllers_experimental
+  rvim_position_controllers
 )
 
 ament_package()

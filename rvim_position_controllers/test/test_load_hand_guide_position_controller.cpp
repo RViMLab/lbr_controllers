@@ -35,7 +35,7 @@ TEST(TestLoadHandGuidePositionController, load_controller)
         executor, "test_controller_manager"
     );
 
-    ASSERT_NO_THROW(cm.load_controller("test_hand_guide_position_controller", "rvim_ros2_controllers_experimental/HandGuidePositionController"));
+    ASSERT_NO_THROW(cm.load_controller("test_hand_guide_position_controller", "rvim_position_controllers/HandGuidePositionController"));
 
     rclcpp::shutdown();
 }

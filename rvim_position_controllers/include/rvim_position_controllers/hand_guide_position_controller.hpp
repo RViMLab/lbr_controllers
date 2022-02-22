@@ -7,7 +7,7 @@
 #include <hardware_interface/types/hardware_interface_type_values.hpp>
 #include <controller_interface/controller_interface.hpp>
 
-#include <qpOASES/QProblem.hpp>
+#include <qpOASES/SQProblem.hpp>
 #include <kdl_parser/kdl_parser.hpp>
 #include <kdl/chain.hpp>
 #include <kdl/chainjnttojacsolver.hpp>
@@ -19,9 +19,10 @@
 // cartesian controller: http://library.isr.ist.utl.pt/docs/roswiki/pr2_mechanism(2f)Tutorials(2f)Coding(20)a(20)realtime(20)Cartesian(20)controller(20)with(20)KDL.html
 // replicate previous hand guiding mode
 
-namespace rvim_ros2_controllers_experimental {
+namespace rvim_position_controllers {
 
     using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+    using RowMajorMatrixXd = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
 
     constexpr char HW_IF_EXTERNAL_TORQUE[] = "external_torque";
 
@@ -63,8 +64,16 @@ namespace rvim_ros2_controllers_experimental {
 
             Eigen::VectorXd dq_ = Eigen::VectorXd::Zero(7);
 
+            // frequency filtering, exponential smoothing
             std::vector<double> prev_update_ = std::vector<double>(7, 0.);
             double alpha_ = 0.98;
+
+            // quadratic problem, https://www.coin-or.org/qpOASES/doc/3.0/manual.pdf
+            std::unique_ptr<qpOASES::SQProblem> qp_; // 7 dim variable dq (to be minimized), 6 constraints (wrench = 0)
+            bool qp_init_ = false;
+            RowMajorMatrixXd H_;
+            Eigen::VectorXd g_, lb_, ub_, lba_, uba_;
+    
     };
 
-}  // end of namespace rvim_ros2_controllers_experimental
+}  // end of namespace rvim_position_controllers

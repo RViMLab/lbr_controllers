@@ -1,6 +1,6 @@
-#include <rvim_ros2_controllers_experimental/hand_guide_position_controller.hpp>
+#include <rvim_position_controllers/hand_guide_position_controller.hpp>
 
-namespace rvim_ros2_controllers_experimental {
+namespace rvim_position_controllers {
 
     controller_interface::return_type HandGuidePositionController::init(const std::string& controller_name) {
         auto ret = ControllerInterface::init(controller_name);
@@ -84,13 +84,6 @@ namespace rvim_ros2_controllers_experimental {
             return CallbackReturn::ERROR;
         };
 
-        // allocate joint angles and Jacobian
-        q_.resize(kdl_chain_.getNrOfJoints());
-        J_.resize(kdl_chain_.getNrOfJoints());
-
-        // create Jacobian solver from kdl chain
-        jac_solver_ = std::make_unique<KDL::ChainJntToJacSolver>(kdl_chain_);
-
         return CallbackReturn::SUCCESS;
     }
 
@@ -128,86 +121,31 @@ namespace rvim_ros2_controllers_experimental {
 
     controller_interface::return_type HandGuidePositionController::update() {
 
+        // noise filter!
+        // xi+1 = alpha*xi-1 + (1-alpha)*xi;
 
-        // compute jacobian
-        for (std::size_t i = 0; i < joint_names_.size(); i++) {
-            q_.data[i] = position_interfaces_[i].get().get_value();
+        // safety set 0!
+        std::vector<double> update(prev_update_.size(), 0.);
+        for (std::size_t i = 0; i<command_interfaces_.size(); i++) {
+            const auto& et = external_torque_interfaces_[i].get().get_value();
+
+            double sign = 0.;
+            if (std::abs(et) > 2.) {
+                sign = std::signbit(et) ? -1. : 1.;
+            } 
+
+            update[i] = alpha_*prev_update_[i] + (1.-alpha_)*sign*0.002;
+            prev_update_[i] = update[i];
+
+            command_interfaces_[i].set_value(position_interfaces_[i].get().get_value() + update[i]);
         }
-
-        jac_solver_->JntToJac(q_, J_);
-        auto J = J_.data;
-        auto J_pseudo_inv = dampedLeastSquares(J);
-        Eigen::VectorXd tau_ext = Eigen::VectorXd::Zero(J.cols());
-        Eigen::VectorXd dx = Eigen::VectorXd::Zero(J.rows());
-        for (std::size_t i = 0; i < joint_names_.size(); i++) {
-            tau_ext[i] = external_torque_interfaces_[i].get().get_value();
-        }
-        RCLCPP_INFO(node_->get_logger(), "text: %f, %f, %f, %f, %f, %f, %f", tau_ext[0], tau_ext[1], tau_ext[2], tau_ext[3], tau_ext[4], tau_ext[5], tau_ext[6]);
-        auto f_ext = J_pseudo_inv.transpose()*tau_ext;
-
-        // determine desired update
-        int j = 0;
-        for (int i = 0; i < 3; i++) {
-            if (std::abs(f_ext[j]) > th_f_) (f_ext[j] > 0. ? dx[j] = 0.1 : dx[j] = -0.1);
-            j++;
-        }
-        for (int i = 0; i < 3; i++) {
-            if (std::abs(f_ext[j]) > th_d_) (f_ext[j] > 0. ? dx[j] = 1.0 : dx[j] = -1.0);
-            j++;
-        }
-        RCLCPP_INFO(node_->get_logger(), "fext: %f, %f, %f, %f, %f, %f", f_ext[0], f_ext[1], f_ext[2], f_ext[3], f_ext[4], f_ext[5]);
-
-        auto dq = 0.01*J_pseudo_inv*dx;
-
-        // set update
-        for (std::size_t i = 0; i < joint_names_.size(); i++) {
-            dq_[i] = alpha_*dq_[i] + (1-alpha_)*dq[i];
-            command_interfaces_[i].set_value(position_interfaces_[i].get().get_value() + dq_[i]);
-        }
-
-        // auto f_ext = J_pseudo_inv.transpose()*;
-
-
-
-        // f_ext = J^#^T tau
-        // avoid f_ext via dx
-        // dq = J^# dx
-
-
-        // jac_solver_->JntToJac()
-
-
-
-
-
-
-
-
-        // // noise filter!
-        // // xi+1 = alpha*xi-1 + (1-alpha)*xi;
-
-        // // safety set 0!
-        // std::vector<double> update(prev_update_.size(), 0.);
-        // for (std::size_t i = 0; i<command_interfaces_.size(); i++) {
-        //     const auto& et = external_torque_interfaces_[i].get().get_value();
-
-        //     double sign = 0.;
-        //     if (std::abs(et) > 2.) {
-        //         sign = std::signbit(et) ? -1. : 1.;
-        //     } 
-
-        //     update[i] = alpha_*prev_update_[i] + (1.-alpha_)*sign*0.002;
-        //     prev_update_[i] = update[i];
-
-        //     command_interfaces_[i].set_value(position_interfaces_[i].get().get_value() + update[i]);
-        // }
 
         // RCLCPP_INFO(node_->get_logger(), "position: %f, external torque: %f", position_interfaces_[0].get().get_value(), external_torque_interfaces_[0].get().get_value());
 
         return controller_interface::return_type::OK;
     }
 
-}  // end of namespace rvim_ros2_controllers_experimental
+}  // end of namespace rvim_position_controllers
 
 // create controller, load controller, print hello world
 
@@ -251,6 +189,6 @@ namespace rvim_ros2_controllers_experimental {
 #include <pluginlib/class_list_macros.hpp>
 
 PLUGINLIB_EXPORT_CLASS(
-    rvim_ros2_controllers_experimental::HandGuidePositionController,
+    rvim_position_controllers::HandGuidePositionController,
     controller_interface::ControllerInterface
 )

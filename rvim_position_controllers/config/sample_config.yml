@@ -6,7 +6,7 @@ controller_manager:
       type: joint_state_broadcaster/JointStateBroadcaster
 
     hand_guide_position_controller:
-      type: rvim_ros2_controllers_experimental/HandGuidePositionController
+      type: rvim_position_controllers/HandGuidePositionController
 
 hand_guide_position_controller:
   ros__parameters:
