@@ -62,18 +62,19 @@ namespace rvim_position_controllers {
             double th_f_=2.;
             double th_d_=1.;
 
-            Eigen::VectorXd dq_ = Eigen::VectorXd::Zero(7);
-
             // frequency filtering, exponential smoothing
             std::vector<double> prev_update_ = std::vector<double>(7, 0.);
             double alpha_ = 0.98;
 
             // quadratic problem, https://www.coin-or.org/qpOASES/doc/3.0/manual.pdf
-            std::unique_ptr<qpOASES::SQProblem> qp_; // 7 dim variable dq (to be minimized), 6 constraints (wrench = 0)
+            qpOASES::Options options_;
+            std::unique_ptr<qpOASES::SQProblem> qp_;
             bool qp_init_ = false;
-            RowMajorMatrixXd H_;
-            Eigen::VectorXd g_, lb_, ub_, lba_, uba_;
-    
+            RowMajorMatrixXd H_, A_;
+            Eigen::RowVectorXd g_, lb_, ub_, lba_, uba_;  // lba_ == uba_ -> ba_ (equality constraints)
+            int nwsr_;
+            double cputime_;  // max cpu time in seconds
+            Eigen::RowVectorXd dq_;
     };
 
 }  // end of namespace rvim_position_controllers
