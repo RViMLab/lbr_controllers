@@ -104,11 +104,41 @@ namespace rvim_position_controllers {
         lba_ = Eigen::RowVectorXd::Constant(6, std::numeric_limits<double>::lowest());
         uba_ = Eigen::RowVectorXd::Constant(6, std::numeric_limits<double>::max());
 
+        // 
+
         nwsr_ = std::numeric_limits<int>::max();
         cputime_ = 0.005;  // 100 hz
 
         dq_ = Eigen::RowVectorXd::Zero(kdl_chain_.getNrOfJoints());
         std::cout << "dq: " << dq_ << std::endl;
+
+
+        // // OSQP
+        // H_osqp_ = Eigen::MatrixXd::Identity(kdl_chain_.getNrOfJoints(), kdl_chain_.getNrOfJoints());
+        // A_osqp_ = Eigen::MatrixXd::Zero(J_.data.rows(), J_.data.cols());
+        // g_osqp_ = Eigen::VectorXd::Zero(kdl_chain_.getNrOfJoints());
+        // lb_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints(), std::numeric_limits<double>::lowest());
+        // ub_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints(), std::numeric_limits<double>::max());
+        // lba_osqp_ = Eigen::VectorXd::Constant(6, std::numeric_limits<double>::lowest());
+        // uba_osqp_ = Eigen::VectorXd::Constant(6, std::numeric_limits<double>::max());
+
+        // dq_osqp_ = Eigen::VectorXd::Zero(kdl_chain_.getNrOfJoints());
+
+        // qp_osqp_ = std::make_unique<OsqpEigen::Solver>();
+        // qp_osqp_->settings()->setWarmStart(true);
+        // qp_osqp_->data()->setNumberOfVariables(kdl_chain_.getNrOfJoints());
+        // qp_osqp_->data()->setNumberOfConstraints(6);
+
+        // qp_osqp_->data()->setHessianMatrix(H_osqp_);
+        // qp_osqp_->data()->setGradient(g_osqp_);
+        // qp_osqp_->data()->setLowerBound(lb_osqp_);
+        // qp_osqp_->data()->setUpperBound(ub_osqp_);
+        // qp_osqp_->data()->setLowerBound
+
+        // if (!qp_osqp_->initSolver()) {
+        //     RCLCPP_ERROR(node_->get_logger(), "Failed to initialized solver.");
+        //     return CallbackReturn::ERROR;
+        // };
 
         return CallbackReturn::SUCCESS;
     }
@@ -260,6 +290,17 @@ namespace rvim_position_controllers {
                 // dq_.setZero();
                 return controller_interface::return_type::ERROR; 
             }
+
+            // qp_osqp_->data()
+
+
+            // // OSQP
+            // auto ret = qp_osqp_->solveProblem();
+            // if (ret != OsqpEigen::ErrorExitFlag::NoError) {
+            //     RCLCPP_ERROR(node_->get_logger(), "Failed init solve QP.");
+            //     return controller_interface::return_type::ERROR;
+            // };
+
             qp_init_ = true;
         } else {
             auto ret = qp_->hotstart(
@@ -285,6 +326,8 @@ namespace rvim_position_controllers {
         qp_->getPrimalSolution(dq.data());
         std::cout << "dq: " << dq << std::endl;
 
+        // // OSQP
+        // Eigen::VectorXd dq = qp_osqp_->getSolution(); // very simple!
 
         // execute solution
         for (std::size_t i = 0; i < joint_names_.size(); i++) {

@@ -7,3 +7,7 @@ repositories:
     type: git
     url: https://github.com/PickNikRobotics/qpoases_vendor.git
     version: ros2
+  osqp_vendors:
+    type: git
+    url: git@github.com:mhubii/osqp_vendor.git
+    version: main

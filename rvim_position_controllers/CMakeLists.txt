@@ -28,6 +28,7 @@ find_package(kdl_parser REQUIRED)
 find_package(urdf REQUIRED)
 find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(osqp_eigen_vendor REQUIRED)
 
 ##
 add_library(rvim_position_controllers
@@ -54,6 +55,7 @@ ament_target_dependencies(rvim_position_controllers
   kdl_parser
   urdf
   Eigen3
+  osqp_eigen_vendor
 )
 
 pluginlib_export_plugin_description_file(controller_interface rvim_position_controllers.xml)
@@ -102,6 +104,7 @@ ament_export_dependencies(
   orocos_kdl
   kdl_parser
   urdf
+  osqp_eigen_vendor
 )
 
 ament_export_include_directories(

@@ -8,6 +8,9 @@
 #include <controller_interface/controller_interface.hpp>
 
 #include <qpOASES/SQProblem.hpp>
+
+// #include <OsqpEigen/OsqpEigen.h>
+
 #include <kdl_parser/kdl_parser.hpp>
 #include <kdl/chain.hpp>
 #include <kdl/chainjnttojacsolver.hpp>
@@ -75,6 +78,12 @@ namespace rvim_position_controllers {
             int nwsr_;
             double cputime_;  // max cpu time in seconds
             Eigen::RowVectorXd dq_;
+
+            // // osqp-eigen
+            // std::unique_ptr<OsqpEigen::Solver> qp_osqp_;
+            // Eigen::MatrixXd H_osqp_, A_osqp_;
+            // Eigen::VectorXd g_osqp_, lb_osqp_, ub_osqp_, lba_osqp_, uba_osqp_;  // lba_ == uba_ -> ba_ (equality constraints)
+            // Eigen::VectorXd dq_osqp_;
     };
 
 }  // end of namespace rvim_position_controllers
