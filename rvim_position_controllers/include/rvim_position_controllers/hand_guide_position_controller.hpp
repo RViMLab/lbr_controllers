@@ -7,9 +7,9 @@
 #include <hardware_interface/types/hardware_interface_type_values.hpp>
 #include <controller_interface/controller_interface.hpp>
 
-#include <qpOASES/SQProblem.hpp>
+// #include <qpOASES/SQProblem.hpp>
 
-// #include <OsqpEigen/OsqpEigen.h>
+#include <OsqpEigen/OsqpEigen.h>
 
 #include <kdl_parser/kdl_parser.hpp>
 #include <kdl/chain.hpp>
@@ -69,21 +69,22 @@ namespace rvim_position_controllers {
             std::vector<double> prev_update_ = std::vector<double>(7, 0.);
             double alpha_ = 0.98;
 
-            // quadratic problem, https://www.coin-or.org/qpOASES/doc/3.0/manual.pdf
-            qpOASES::Options options_;
-            std::unique_ptr<qpOASES::SQProblem> qp_;
-            bool qp_init_ = false;
-            RowMajorMatrixXd H_, A_;
-            Eigen::RowVectorXd g_, lb_, ub_, lba_, uba_;  // lba_ == uba_ -> ba_ (equality constraints)
+            // // quadratic problem, https://www.coin-or.org/qpOASES/doc/3.0/manual.pdf
+            // qpOASES::Options options_;
+            // std::unique_ptr<qpOASES::SQProblem> qp_;
+            // bool qp_init_ = false;
+            // RowMajorMatrixXd H_, A_;
+            // Eigen::RowVectorXd g_, lb_, ub_, lba_, uba_;  // lba_ == uba_ -> ba_ (equality constraints)
             int nwsr_;
             double cputime_;  // max cpu time in seconds
-            Eigen::RowVectorXd dq_;
+            // // Eigen::RowVectorXd dq_;
 
-            // // osqp-eigen
-            // std::unique_ptr<OsqpEigen::Solver> qp_osqp_;
-            // Eigen::MatrixXd H_osqp_, A_osqp_;
-            // Eigen::VectorXd g_osqp_, lb_osqp_, ub_osqp_, lba_osqp_, uba_osqp_;  // lba_ == uba_ -> ba_ (equality constraints)
-            // Eigen::VectorXd dq_osqp_;
+            // osqp-eigen
+            std::unique_ptr<OsqpEigen::Solver> qp_osqp_;
+            Eigen::SparseMatrix<double> H_osqp_, A_osqp_;
+            Eigen::VectorXd g_osqp_, lb_osqp_, ub_osqp_;
+            Eigen::VectorXd dq_osqp_;
+            Eigen::VectorXd dq_;
     };
 
 }  // end of namespace rvim_position_controllers

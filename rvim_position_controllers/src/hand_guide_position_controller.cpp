@@ -91,54 +91,65 @@ namespace rvim_position_controllers {
         // create Jacobian solver from kdl chain
         jac_solver_ = std::make_unique<KDL::ChainJntToJacSolver>(kdl_chain_);
 
-        // create quadratic problem
-        options_.printLevel = qpOASES::PL_LOW;
-        qp_ = std::make_unique<qpOASES::SQProblem>(kdl_chain_.getNrOfJoints(), 6, qpOASES::HST_IDENTITY);
-        qp_->setOptions(options_);
+        // // create quadratic problem
+        // options_.printLevel = qpOASES::PL_LOW;
+        // qp_ = std::make_unique<qpOASES::SQProblem>(kdl_chain_.getNrOfJoints(), 6, qpOASES::HST_IDENTITY);
+        // qp_->setOptions(options_);
 
-        H_ = RowMajorMatrixXd::Identity(kdl_chain_.getNrOfJoints(), kdl_chain_.getNrOfJoints());
-        A_ = RowMajorMatrixXd::Zero(J_.data.rows(), J_.data.cols());
-        g_ = Eigen::RowVectorXd::Zero(kdl_chain_.getNrOfJoints());
-        lb_ = Eigen::RowVectorXd::Constant(kdl_chain_.getNrOfJoints(), std::numeric_limits<double>::lowest());
-        ub_ = Eigen::RowVectorXd::Constant(kdl_chain_.getNrOfJoints(), std::numeric_limits<double>::max());
-        lba_ = Eigen::RowVectorXd::Constant(6, std::numeric_limits<double>::lowest());
-        uba_ = Eigen::RowVectorXd::Constant(6, std::numeric_limits<double>::max());
+        // H_ = RowMajorMatrixXd::Identity(kdl_chain_.getNrOfJoints(), kdl_chain_.getNrOfJoints());
+        // A_ = RowMajorMatrixXd::Zero(J_.data.rows(), J_.data.cols());
+        // g_ = Eigen::RowVectorXd::Zero(kdl_chain_.getNrOfJoints());
+        // lb_ = Eigen::RowVectorXd::Constant(kdl_chain_.getNrOfJoints(), std::numeric_limits<double>::lowest());
+        // ub_ = Eigen::RowVectorXd::Constant(kdl_chain_.getNrOfJoints(), std::numeric_limits<double>::max());
+        // lba_ = Eigen::RowVectorXd::Constant(6, std::numeric_limits<double>::lowest());
+        // uba_ = Eigen::RowVectorXd::Constant(6, std::numeric_limits<double>::max());
 
         // 
 
         nwsr_ = std::numeric_limits<int>::max();
         cputime_ = 0.005;  // 100 hz
 
-        dq_ = Eigen::RowVectorXd::Zero(kdl_chain_.getNrOfJoints());
+        // dq_ = Eigen::RowVectorXd::Zero(kdl_chain_.getNrOfJoints());
         std::cout << "dq: " << dq_ << std::endl;
 
 
-        // // OSQP
-        // H_osqp_ = Eigen::MatrixXd::Identity(kdl_chain_.getNrOfJoints(), kdl_chain_.getNrOfJoints());
-        // A_osqp_ = Eigen::MatrixXd::Zero(J_.data.rows(), J_.data.cols());
-        // g_osqp_ = Eigen::VectorXd::Zero(kdl_chain_.getNrOfJoints());
-        // lb_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints(), std::numeric_limits<double>::lowest());
-        // ub_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints(), std::numeric_limits<double>::max());
-        // lba_osqp_ = Eigen::VectorXd::Constant(6, std::numeric_limits<double>::lowest());
-        // uba_osqp_ = Eigen::VectorXd::Constant(6, std::numeric_limits<double>::max());
+        // OSQP
+        H_osqp_.resize(kdl_chain_.getNrOfJoints(), kdl_chain_.getNrOfJoints()); H_osqp_.setIdentity();
+        A_osqp_.resize(J_.data.rows() + J_.data.cols(), J_.data.cols()); A_osqp_.setZero();
+        g_osqp_ = Eigen::VectorXd::Zero(kdl_chain_.getNrOfJoints());
+        lb_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints() + J_.data.cols(), std::numeric_limits<double>::lowest());
+        ub_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints() + J_.data.cols(), std::numeric_limits<double>::max());
 
-        // dq_osqp_ = Eigen::VectorXd::Zero(kdl_chain_.getNrOfJoints());
+        // identity for bounds on dq_osqp_
+        // sparse matrices: https://eigen.tuxfamily.org/dox/group__SparseQuickRefPage.html
+        // manipulation: https://eigen.tuxfamily.org/dox/group__TutorialSparse.html
+        for (int i = 0; i < J_.data.cols(); i ++) {
+            A_osqp_.insert(J_.data.rows()+i, i) = 1.;  // sparse matrix mostly empty, hence inserion required
+        }
 
-        // qp_osqp_ = std::make_unique<OsqpEigen::Solver>();
-        // qp_osqp_->settings()->setWarmStart(true);
-        // qp_osqp_->data()->setNumberOfVariables(kdl_chain_.getNrOfJoints());
-        // qp_osqp_->data()->setNumberOfConstraints(6);
+        dq_osqp_ = Eigen::VectorXd::Zero(kdl_chain_.getNrOfJoints());
 
-        // qp_osqp_->data()->setHessianMatrix(H_osqp_);
-        // qp_osqp_->data()->setGradient(g_osqp_);
-        // qp_osqp_->data()->setLowerBound(lb_osqp_);
-        // qp_osqp_->data()->setUpperBound(ub_osqp_);
-        // qp_osqp_->data()->setLowerBound
+        qp_osqp_ = std::make_unique<OsqpEigen::Solver>();
+        qp_osqp_->settings()->setWarmStart(true);
+        qp_osqp_->data()->setNumberOfVariables(kdl_chain_.getNrOfJoints());
+        qp_osqp_->data()->setNumberOfConstraints(6);
 
-        // if (!qp_osqp_->initSolver()) {
-        //     RCLCPP_ERROR(node_->get_logger(), "Failed to initialized solver.");
-        //     return CallbackReturn::ERROR;
-        // };
+        qp_osqp_->data()->setHessianMatrix(H_osqp_);
+        qp_osqp_->data()->setLinearConstraintsMatrix(A_osqp_);
+        qp_osqp_->data()->setGradient(g_osqp_);
+        qp_osqp_->data()->setLowerBound(lb_osqp_);
+        qp_osqp_->data()->setUpperBound(ub_osqp_);
+
+        qp_osqp_->settings()->setMaxIteration(nwsr_);
+        qp_osqp_->settings()->setTimeLimit(cputime_);
+
+        dq_ = Eigen::VectorXd::Zero(kdl_chain_.getNrOfJoints());
+        std::cout << "dq: " << dq_ << std::endl;
+
+        if (!qp_osqp_->initSolver()) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to initialized solver.");
+            return CallbackReturn::ERROR;
+        };
 
         return CallbackReturn::SUCCESS;
     }
@@ -214,6 +225,127 @@ namespace rvim_position_controllers {
         // // lbA, upA, lbA = ubA (equality)
 
 
+        // // qpOASES
+        // // compute jacobian
+        // for (std::size_t i = 0; i < joint_names_.size(); i++) {
+        //     q_.data[i] = position_interfaces_[i].get().get_value();
+        // }
+        // jac_solver_->JntToJac(q_, J_);
+
+        // auto J = J_.data;
+        // auto J_pseudo_inv = dampedLeastSquares(J);
+        // Eigen::RowVectorXd tau_ext = Eigen::VectorXd::Zero(J.cols());
+
+        // for (std::size_t i = 0; i < joint_names_.size(); i++) {
+        //     tau_ext[i] = external_torque_interfaces_[i].get().get_value();
+        // }
+
+        // // threshold tau_ext? 
+
+        // A_ = J;  // 0.01 = K
+        // A_.topRows(3) *= 2500.;
+        // A_.bottomRows(3) *= 500.;
+        // Eigen::RowVectorXd ba = tau_ext*J_pseudo_inv;
+
+        // // threshold noise
+        // ba.head(3) = ba.head(3).unaryExpr([](double d){
+        //     if (std::abs(d) > 2.) {
+        //         // double sign = std::signbit(d) ? -1.:1.;
+        //         return d;
+        //     } else {
+        //         return 0.;
+        //     }
+        // });
+        // ba.tail(3) = ba.tail(3).unaryExpr([](double d){
+        //     if (std::abs(d) > 0.5) {
+        //         // double sign = std::signbit(d) ? -0.5:0.5;
+        //         return d;
+        //     } else {
+        //         return 0.;
+        //     }
+        // });
+
+        // std::cout << "ba: " << ba << std::endl;
+        // lba_.head(3) = ba.head(3).array() - 1.;  // 1N, 1Nm
+        // lba_.tail(3) = ba.tail(3).array() - 0.25;  // 1N, 1Nm
+        // uba_.head(3) = ba.head(3).array() + 1.;
+        // uba_.tail(3) = ba.tail(3).array() + 0.25;
+
+
+        // // uba_.setConstant(std::numeric_limits<double>::max()); lba_.setConstant(std::numeric_limits<double>::lowest());
+        // // std::cout << "ba:\n " << ba << std::endl;
+        // // std::cout << "lba:\n" << lba_ << std::endl;
+        // // std::cout << "uba:\n" << uba_ << std::endl;
+
+        // // // std::cout << "A: \n" << A_ << std::endl;
+        // // // std::cout << "g: \n" << g_ << std::endl;
+        // // // std::cout << "ba:\n" << ba_ << std::endl;
+        // // std::cout << "lb:\n" << lb_ << std::endl;
+        // // std::cout << "ub:\n" << ub_ << std::endl;
+        // // std::cout << "nwsr: " << nwsr_ << std::endl;
+
+        // // find solution given cpu constraints
+        // int nwsr_tmp_ = nwsr_;
+        // if (!qp_init_) {
+        //     auto ret = qp_->init(
+        //         nullptr,  // trivial qp
+        //         g_.data(), 
+        //         A_.data(), 
+        //         lb_.data(), 
+        //         ub_.data(), 
+        //         lba_.data(), 
+        //         uba_.data(), 
+        //         nwsr_tmp_, 
+        //         &cputime_
+        //     );
+        //     if (ret != qpOASES::SUCCESSFUL_RETURN) {
+        //         RCLCPP_ERROR(node_->get_logger(), "Failed init solve SQP: qpOASES::returnValue::%d.", ret);
+        //         // dq_.setZero();
+        //         return controller_interface::return_type::ERROR; 
+        //     }
+
+        //     // qp_osqp_->data()
+
+
+        //     // // OSQP
+        //     // auto ret = qp_osqp_->solveProblem();
+        //     // if (ret != OsqpEigen::ErrorExitFlag::NoError) {
+        //     //     RCLCPP_ERROR(node_->get_logger(), "Failed init solve QP.");
+        //     //     return controller_interface::return_type::ERROR;
+        //     // };
+
+        //     qp_init_ = true;
+        // } else {
+        //     auto ret = qp_->hotstart(
+        //         nullptr,  // trivial qp
+        //         g_.data(), 
+        //         A_.data(), 
+        //         lb_.data(), 
+        //         ub_.data(), 
+        //         lba_.data(), 
+        //         uba_.data(), 
+        //         nwsr_tmp_, 
+        //         &cputime_
+        //     );
+        //     // if (ret != qpOASES::SUCCESSFUL_RETURN) {
+        //     //     RCLCPP_ERROR(node_->get_logger(), "Failed hotstart solve SQP: qpOASES::returnValue::%d.", ret);
+        //     //     // dq_.setZero();
+        //     //     return controller_interface::return_type::ERROR; 
+        //     // }
+        // }
+
+        // // get solution
+        // Eigen::RowVectorXd dq = Eigen::RowVectorXd::Zero(dq_.size());
+        // qp_->getPrimalSolution(dq.data());
+        // std::cout << "dq: " << dq << std::endl;
+
+        // // qpOASES
+
+
+
+
+
+        // OSQP
         // compute jacobian
         for (std::size_t i = 0; i < joint_names_.size(); i++) {
             q_.data[i] = position_interfaces_[i].get().get_value();
@@ -222,18 +354,24 @@ namespace rvim_position_controllers {
 
         auto J = J_.data;
         auto J_pseudo_inv = dampedLeastSquares(J);
-        Eigen::RowVectorXd tau_ext = Eigen::VectorXd::Zero(J.cols());
+        Eigen::VectorXd tau_ext = Eigen::VectorXd::Zero(J.cols());
 
         for (std::size_t i = 0; i < joint_names_.size(); i++) {
             tau_ext[i] = external_torque_interfaces_[i].get().get_value();
         }
 
         // threshold tau_ext?
+        for (int i = 0; i < J.rows(); i++) {
+            for (int j = 0; j < J.rows(); j++) {
+                if (i < 3) {
+                    A_osqp_.coeffRef(i, j) = 2500.*J(i, j);
+                } else {
+                    A_osqp_.coeffRef(i, j) = 500.*J(i, j);
+                }
+            }
+        }
 
-        A_ = J;  // 0.01 = K
-        A_.topRows(3) *= 2500.;
-        A_.bottomRows(3) *= 500.;
-        Eigen::RowVectorXd ba = tau_ext*J_pseudo_inv;
+        Eigen::VectorXd ba = J_pseudo_inv.transpose()*tau_ext;
 
         // threshold noise
         ba.head(3) = ba.head(3).unaryExpr([](double d){
@@ -253,81 +391,27 @@ namespace rvim_position_controllers {
             }
         });
 
-        std::cout << "ba: " << ba << std::endl;
-        lba_.head(3) = ba.head(3).array() - 1.;  // 1N, 1Nm
-        lba_.tail(3) = ba.tail(3).array() - 0.25;  // 1N, 1Nm
-        uba_.head(3) = ba.head(3).array() + 1.;
-        uba_.tail(3) = ba.tail(3).array() + 0.25;
+        lb_osqp_.segment(lb_osqp_.size() - 7, lb_osqp_.size() - 4) = ba.head(3).array() - 1.;  // 1N, 1Nm
+        lb_osqp_.tail(3) = ba.tail(3).array() - 0.25;  // 1N, 1Nm
+        ub_osqp_.segment(ub_osqp_.size() - 7, ub_osqp_.size() - 4) = ba.head(3).array() + 1.;
+        ub_osqp_.tail(3) = ba.tail(3).array() + 0.25;
 
-        // uba_.setConstant(std::numeric_limits<double>::max()); lba_.setConstant(std::numeric_limits<double>::lowest());
-        // std::cout << "ba:\n " << ba << std::endl;
-        // std::cout << "lba:\n" << lba_ << std::endl;
-        // std::cout << "uba:\n" << uba_ << std::endl;
+        // update QP
+        qp_osqp_->updateHessianMatrix(A_osqp_);
+        qp_osqp_->updateLowerBound(lb_osqp_);
+        qp_osqp_->updateUpperBound(ub_osqp_);
 
-        // // std::cout << "A: \n" << A_ << std::endl;
-        // // std::cout << "g: \n" << g_ << std::endl;
-        // // std::cout << "ba:\n" << ba_ << std::endl;
-        // std::cout << "lb:\n" << lb_ << std::endl;
-        // std::cout << "ub:\n" << ub_ << std::endl;
-        // std::cout << "nwsr: " << nwsr_ << std::endl;
-
-        // find solution given cpu constraints
-        int nwsr_tmp_ = nwsr_;
-        if (!qp_init_) {
-            auto ret = qp_->init(
-                nullptr,  // trivial qp
-                g_.data(), 
-                A_.data(), 
-                lb_.data(), 
-                ub_.data(), 
-                lba_.data(), 
-                uba_.data(), 
-                nwsr_tmp_, 
-                &cputime_
-            );
-            if (ret != qpOASES::SUCCESSFUL_RETURN) {
-                RCLCPP_ERROR(node_->get_logger(), "Failed init solve SQP: qpOASES::returnValue::%d.", ret);
-                // dq_.setZero();
-                return controller_interface::return_type::ERROR; 
-            }
-
-            // qp_osqp_->data()
-
-
-            // // OSQP
-            // auto ret = qp_osqp_->solveProblem();
-            // if (ret != OsqpEigen::ErrorExitFlag::NoError) {
-            //     RCLCPP_ERROR(node_->get_logger(), "Failed init solve QP.");
-            //     return controller_interface::return_type::ERROR;
-            // };
-
-            qp_init_ = true;
-        } else {
-            auto ret = qp_->hotstart(
-                nullptr,  // trivial qp
-                g_.data(), 
-                A_.data(), 
-                lb_.data(), 
-                ub_.data(), 
-                lba_.data(), 
-                uba_.data(), 
-                nwsr_tmp_, 
-                &cputime_
-            );
-            // if (ret != qpOASES::SUCCESSFUL_RETURN) {
-            //     RCLCPP_ERROR(node_->get_logger(), "Failed hotstart solve SQP: qpOASES::returnValue::%d.", ret);
-            //     // dq_.setZero();
-            //     return controller_interface::return_type::ERROR; 
-            // }
-        }
+        // compute solution
+        auto ret = qp_osqp_->solveProblem();
+        if (ret != OsqpEigen::ErrorExitFlag::NoError) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed init solve QP.");
+            return controller_interface::return_type::ERROR;
+        };
 
         // get solution
-        Eigen::RowVectorXd dq = Eigen::RowVectorXd::Zero(dq_.size());
-        qp_->getPrimalSolution(dq.data());
-        std::cout << "dq: " << dq << std::endl;
+        Eigen::VectorXd dq = qp_osqp_->getSolution(); // very simple!
 
-        // // OSQP
-        // Eigen::VectorXd dq = qp_osqp_->getSolution(); // very simple!
+        // OSQP
 
         // execute solution
         for (std::size_t i = 0; i < joint_names_.size(); i++) {

@@ -19,6 +19,7 @@
   <depend>kdl_parser</depend>
   <depend>urdf</depend>
   <depend>eigen3</depend>
+  <!-- <depend>osqp_vendor</depend> -->
   <depend>osqp_eigen_vendor</depend>
 
   <build_depend>pluginlib</build_depend>
