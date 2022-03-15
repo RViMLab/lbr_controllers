@@ -1,7 +1,7 @@
 repositories:
   rvim_ros2_controllers_experimental:
     type: git
-    url: git@github.com:RViMLab/rvim_ros2_controllers_experimental.git
+    url: https://github.com/RViMLab/rvim_ros2_controllers_experimental.git
     version: foxy
   qpoases_vendor:
     type: git
@@ -9,5 +9,5 @@ repositories:
     version: ros2
   osqp_vendors:
     type: git
-    url: git@github.com:mhubii/osqp_vendor.git
+    url: https://github.com/mhubii/osqp_vendor.git
     version: main
