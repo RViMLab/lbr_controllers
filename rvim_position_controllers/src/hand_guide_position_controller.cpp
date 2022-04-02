@@ -371,7 +371,7 @@ namespace rvim_position_controllers {
             }
         }
 
-        Eigen::VectorXd ba = J_pseudo_inv.transpose()*tau_ext;
+        Eigen::VectorXd ba = J_pseudo_inv.transpose()*tau_ext;  // ba ~ f_ext, 6 dim
 
         // threshold noise
         ba.head(3) = ba.head(3).unaryExpr([](double d){
@@ -391,10 +391,10 @@ namespace rvim_position_controllers {
             }
         });
 
-        lb_osqp_.segment(lb_osqp_.size() - 7, lb_osqp_.size() - 4) = ba.head(3).array() - 1.;  // 1N, 1Nm
-        lb_osqp_.tail(3) = ba.tail(3).array() - 0.25;  // 1N, 1Nm
-        ub_osqp_.segment(ub_osqp_.size() - 7, ub_osqp_.size() - 4) = ba.head(3).array() + 1.;
-        ub_osqp_.tail(3) = ba.tail(3).array() + 0.25;
+        lb_osqp_.head(3) = ba.head(3).array() - 1.;  // 1N, 1Nm
+        lb_osqp_.segment(3, 3) = ba.tail(3).array() - 0.25;  // 1N, 1Nm
+        ub_osqp_.head(3) = ba.head(3).array() + 1.;
+        ub_osqp_.segment(3, 3) = ba.tail(3).array() + 0.25;
 
         // update QP
         qp_osqp_->updateHessianMatrix(A_osqp_);
