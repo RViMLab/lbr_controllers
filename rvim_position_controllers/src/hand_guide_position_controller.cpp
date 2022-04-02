@@ -12,7 +12,7 @@ namespace rvim_position_controllers {
     }
 
     controller_interface::InterfaceConfiguration HandGuidePositionController::command_interface_configuration() const {
-        RCLCPP_INFO(node_->get_logger(), "Command interface configure called.");
+        RCLCPP_INFO(node_->get_logger(), "command_interface_configuration");
         controller_interface::InterfaceConfiguration command_interface_configuration;
         command_interface_configuration.type = controller_interface::interface_configuration_type::INDIVIDUAL;
         for (const auto& joint_name: joint_names_) {
@@ -22,7 +22,7 @@ namespace rvim_position_controllers {
     }
 
     controller_interface::InterfaceConfiguration HandGuidePositionController::state_interface_configuration() const {
-        RCLCPP_INFO(node_->get_logger(), "State interface configure called.");
+        RCLCPP_INFO(node_->get_logger(), "state_interface_configuration");
         controller_interface::InterfaceConfiguration state_interface_configuration;
         state_interface_configuration.type = controller_interface::interface_configuration_type::INDIVIDUAL;
         for (const auto& joint_name: joint_names_) {
@@ -34,6 +34,7 @@ namespace rvim_position_controllers {
     }
 
     CallbackReturn HandGuidePositionController::on_configure(const rclcpp_lifecycle::State& /*previous_state*/) {
+        RCLCPP_INFO(node_->get_logger(), "on_configure");
         // configure interfaces
         if (!node_->get_parameter("command_interface", command_interface_name_)) {
             RCLCPP_ERROR(node_->get_logger(), "Failed to load command_interface parameter");
@@ -110,15 +111,13 @@ namespace rvim_position_controllers {
         cputime_ = 0.005;  // 100 hz
 
         // dq_ = Eigen::RowVectorXd::Zero(kdl_chain_.getNrOfJoints());
-        std::cout << "dq: " << dq_ << std::endl;
-
 
         // OSQP
         H_osqp_.resize(kdl_chain_.getNrOfJoints(), kdl_chain_.getNrOfJoints()); H_osqp_.setIdentity();  // q^T H q
         A_osqp_.resize(J_.data.rows() + kdl_chain_.getNrOfJoints(), kdl_chain_.getNrOfJoints()); A_osqp_.setZero();  // [J, I]^T
         g_osqp_ = Eigen::VectorXd::Zero(kdl_chain_.getNrOfJoints());  // trivial -> zeros
-        lb_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints() + J_.data.rows(), std::numeric_limits<double>::lowest());
-        ub_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints() + J_.data.rows(), std::numeric_limits<double>::max());
+        lb_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints() + J_.data.rows(), std::numeric_limits<int>::lowest());
+        ub_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints() + J_.data.rows(), std::numeric_limits<int>::max());
 
         // identity for bounds on dq_osqp_
         // sparse matrices: https://eigen.tuxfamily.org/dox/group__SparseQuickRefPage.html
@@ -127,24 +126,26 @@ namespace rvim_position_controllers {
             A_osqp_.insert(J_.data.rows()+i, i) = 1.;  // sparse matrix mostly empty, hence inserion required
         }
 
+        std::cout << "A:\n" << A_osqp_ << std::endl;
+
         dq_osqp_ = Eigen::VectorXd::Zero(kdl_chain_.getNrOfJoints());
 
         qp_osqp_ = std::make_unique<OsqpEigen::Solver>();
+        qp_osqp_->settings()->setVerbosity(false);
         qp_osqp_->settings()->setWarmStart(true);
         qp_osqp_->data()->setNumberOfVariables(kdl_chain_.getNrOfJoints());
         qp_osqp_->data()->setNumberOfConstraints(kdl_chain_.getNrOfJoints() + J_.data.rows());
 
-        qp_osqp_->data()->setHessianMatrix(H_osqp_);
-        qp_osqp_->data()->setLinearConstraintsMatrix(A_osqp_);
-        qp_osqp_->data()->setGradient(g_osqp_);
-        qp_osqp_->data()->setLowerBound(lb_osqp_);
-        qp_osqp_->data()->setUpperBound(ub_osqp_);
+        if (!qp_osqp_->data()->setHessianMatrix(H_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to set Hessian matrix."); return CallbackReturn::ERROR; };
+        if (!qp_osqp_->data()->setLinearConstraintsMatrix(A_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to set linear constraints matrix."); return CallbackReturn::ERROR; };
+        if (!qp_osqp_->data()->setGradient(g_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to set gradient vector."); return CallbackReturn::ERROR; };
+        if (!qp_osqp_->data()->setLowerBound(lb_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to set lower bounds."); return CallbackReturn::ERROR; };
+        if (!qp_osqp_->data()->setUpperBound(ub_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to set upper bounds."); return CallbackReturn::ERROR; };
 
         qp_osqp_->settings()->setMaxIteration(nwsr_);
         qp_osqp_->settings()->setTimeLimit(cputime_);
 
         dq_ = Eigen::VectorXd::Zero(kdl_chain_.getNrOfJoints());
-        std::cout << "dq: " << dq_ << std::endl;
 
         if (!qp_osqp_->initSolver()) {
             RCLCPP_ERROR(node_->get_logger(), "Failed to initialized solver.");
@@ -156,20 +157,17 @@ namespace rvim_position_controllers {
 
     CallbackReturn HandGuidePositionController::on_activate(const rclcpp_lifecycle::State& /*previous_state*/) {
         // get a sorted reference
-        if (
-            position_interfaces_.size() != this->joint_names_.size() &&
-            external_torque_interfaces_.size() != this->joint_names_.size()
-        ) {
-            for (auto& state_interface: state_interfaces_) {
-                if (state_interface.get_interface_name() == hardware_interface::HW_IF_POSITION) {
-                    position_interfaces_.emplace_back(std::ref(state_interface));
-                } else if (state_interface.get_interface_name() == HW_IF_EXTERNAL_TORQUE) {
-                    external_torque_interfaces_.emplace_back(std::ref(state_interface));
-                }
-                else {
-                    RCLCPP_ERROR(node_->get_logger(), "Provided with wrong state interface '%s' for joint %s.", state_interface.get_interface_name().c_str(), state_interface.get_name().c_str());
-                    return CallbackReturn::ERROR;
-                }
+        position_interfaces_.clear(); external_torque_interfaces_.clear();
+        RCLCPP_INFO(node_->get_logger(), "on_activate");
+        for (auto& state_interface: state_interfaces_) {
+            if (state_interface.get_interface_name() == hardware_interface::HW_IF_POSITION) {
+                position_interfaces_.emplace_back(std::ref(state_interface));
+            } else if (state_interface.get_interface_name() == HW_IF_EXTERNAL_TORQUE) {
+                external_torque_interfaces_.emplace_back(std::ref(state_interface));
+            }
+            else {
+                RCLCPP_ERROR(node_->get_logger(), "Provided with wrong state interface '%s' for joint %s.", state_interface.get_interface_name().c_str(), state_interface.get_name().c_str());
+                return CallbackReturn::ERROR;
             }
         }
 
@@ -187,7 +185,7 @@ namespace rvim_position_controllers {
     }
 
     CallbackReturn HandGuidePositionController::on_deactivate(const rclcpp_lifecycle::State& /*previous_state*/) {
-        RCLCPP_INFO(node_->get_logger(), "On deactivate called.");
+        RCLCPP_INFO(node_->get_logger(), "on_deactivate");
         return CallbackReturn::SUCCESS;
     }
 
@@ -369,9 +367,9 @@ namespace rvim_position_controllers {
         for (int i = 0; i < J.rows(); i++) {
             for (int j = 0; j < J.cols(); j++) {
                 if (i < 3) {
-                    A_osqp_.coeffRef(i, j) = 2500.*J(i, j);
+                    A_osqp_.coeffRef(i, j) = 3000.*J(i, j);
                 } else {
-                    A_osqp_.coeffRef(i, j) = 500.*J(i, j);
+                    A_osqp_.coeffRef(i, j) = 300.*J(i, j);
                 }
             }
         }
@@ -402,9 +400,8 @@ namespace rvim_position_controllers {
         ub_osqp_.segment(3, 3) = ba.tail(3).array() + 0.25;
 
         // update QP
-        qp_osqp_->updateHessianMatrix(A_osqp_);
-        qp_osqp_->updateLowerBound(lb_osqp_);
-        qp_osqp_->updateUpperBound(ub_osqp_);
+        if (!qp_osqp_->updateLinearConstraintsMatrix(A_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to update linear constraints matrix."); return controller_interface::return_type::ERROR; };
+        if (!qp_osqp_->updateBounds(lb_osqp_, ub_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to update bounds."); return controller_interface::return_type::ERROR; };
 
         // compute solution
         auto ret = qp_osqp_->solveProblem();
@@ -421,6 +418,7 @@ namespace rvim_position_controllers {
         // execute solution
         for (std::size_t i = 0; i < joint_names_.size(); i++) {
             dq_[i] = alpha_*dq_[i] + (1-alpha_)*dq[i];
+            // RCLCPP_INFO(node_->get_logger(), "%f", dq[i]);
             command_interfaces_[i].set_value(position_interfaces_[i].get().get_value() + dq_[i]);
         }
 
@@ -482,10 +480,6 @@ namespace rvim_position_controllers {
         // ********************************************************
 
         
-
-
-
-
 
         // ********************************************************
         // ******************************* torque avoidance control
