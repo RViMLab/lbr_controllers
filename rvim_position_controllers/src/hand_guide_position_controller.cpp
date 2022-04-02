@@ -156,15 +156,20 @@ namespace rvim_position_controllers {
 
     CallbackReturn HandGuidePositionController::on_activate(const rclcpp_lifecycle::State& /*previous_state*/) {
         // get a sorted reference
-        for (auto& state_interface: state_interfaces_) {
-            if (state_interface.get_interface_name() == hardware_interface::HW_IF_POSITION) {
-                position_interfaces_.emplace_back(std::ref(state_interface));
-            } else if (state_interface.get_interface_name() == HW_IF_EXTERNAL_TORQUE) {
-                external_torque_interfaces_.emplace_back(std::ref(state_interface));
-            }
-            else {
-                RCLCPP_ERROR(node_->get_logger(), "Provided with wrong state interface '%s' for joint %s.", state_interface.get_interface_name().c_str(), state_interface.get_name().c_str());
-                return CallbackReturn::ERROR;
+        if (
+            position_interfaces_.size() != this->joint_names_.size() &&
+            external_torque_interfaces_.size() != this->joint_names_.size()
+        ) {
+            for (auto& state_interface: state_interfaces_) {
+                if (state_interface.get_interface_name() == hardware_interface::HW_IF_POSITION) {
+                    position_interfaces_.emplace_back(std::ref(state_interface));
+                } else if (state_interface.get_interface_name() == HW_IF_EXTERNAL_TORQUE) {
+                    external_torque_interfaces_.emplace_back(std::ref(state_interface));
+                }
+                else {
+                    RCLCPP_ERROR(node_->get_logger(), "Provided with wrong state interface '%s' for joint %s.", state_interface.get_interface_name().c_str(), state_interface.get_name().c_str());
+                    return CallbackReturn::ERROR;
+                }
             }
         }
 
