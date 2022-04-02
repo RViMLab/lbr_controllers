@@ -114,11 +114,11 @@ namespace rvim_position_controllers {
 
 
         // OSQP
-        H_osqp_.resize(kdl_chain_.getNrOfJoints(), kdl_chain_.getNrOfJoints()); H_osqp_.setIdentity();
-        A_osqp_.resize(J_.data.rows() + J_.data.cols(), J_.data.cols()); A_osqp_.setZero();
-        g_osqp_ = Eigen::VectorXd::Zero(kdl_chain_.getNrOfJoints());
-        lb_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints() + J_.data.cols(), std::numeric_limits<double>::lowest());
-        ub_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints() + J_.data.cols(), std::numeric_limits<double>::max());
+        H_osqp_.resize(kdl_chain_.getNrOfJoints(), kdl_chain_.getNrOfJoints()); H_osqp_.setIdentity();  // q^T H q
+        A_osqp_.resize(J_.data.rows() + kdl_chain_.getNrOfJoints(), kdl_chain_.getNrOfJoints()); A_osqp_.setZero();  // [J, I]^T
+        g_osqp_ = Eigen::VectorXd::Zero(kdl_chain_.getNrOfJoints());  // trivial -> zeros
+        lb_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints() + J_.data.rows(), std::numeric_limits<double>::lowest());
+        ub_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints() + J_.data.rows(), std::numeric_limits<double>::max());
 
         // identity for bounds on dq_osqp_
         // sparse matrices: https://eigen.tuxfamily.org/dox/group__SparseQuickRefPage.html
@@ -132,7 +132,7 @@ namespace rvim_position_controllers {
         qp_osqp_ = std::make_unique<OsqpEigen::Solver>();
         qp_osqp_->settings()->setWarmStart(true);
         qp_osqp_->data()->setNumberOfVariables(kdl_chain_.getNrOfJoints());
-        qp_osqp_->data()->setNumberOfConstraints(6);
+        qp_osqp_->data()->setNumberOfConstraints(kdl_chain_.getNrOfJoints() + J_.data.rows());
 
         qp_osqp_->data()->setHessianMatrix(H_osqp_);
         qp_osqp_->data()->setLinearConstraintsMatrix(A_osqp_);
@@ -362,7 +362,7 @@ namespace rvim_position_controllers {
 
         // threshold tau_ext?
         for (int i = 0; i < J.rows(); i++) {
-            for (int j = 0; j < J.rows(); j++) {
+            for (int j = 0; j < J.cols(); j++) {
                 if (i < 3) {
                     A_osqp_.coeffRef(i, j) = 2500.*J(i, j);
                 } else {
