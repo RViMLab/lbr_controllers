@@ -116,8 +116,8 @@ namespace rvim_position_controllers {
         H_osqp_.resize(kdl_chain_.getNrOfJoints(), kdl_chain_.getNrOfJoints()); H_osqp_.setIdentity();  // q^T H q
         A_osqp_.resize(J_.data.rows() + kdl_chain_.getNrOfJoints(), kdl_chain_.getNrOfJoints()); A_osqp_.setZero();  // [J, I]^T
         g_osqp_ = Eigen::VectorXd::Zero(kdl_chain_.getNrOfJoints());  // trivial -> zeros
-        lb_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints() + J_.data.rows(), std::numeric_limits<int>::lowest());
-        ub_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints() + J_.data.rows(), std::numeric_limits<int>::max());
+        lb_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints() + J_.data.rows(), -0.01);//std::numeric_limits<int>::lowest());
+        ub_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints() + J_.data.rows(),  0.01);//std::numeric_limits<int>::max());
 
         // identity for bounds on dq_osqp_
         // sparse matrices: https://eigen.tuxfamily.org/dox/group__SparseQuickRefPage.html
@@ -356,7 +356,7 @@ namespace rvim_position_controllers {
         jac_solver_->JntToJac(q_, J_);
 
         auto J = J_.data;
-        auto J_pseudo_inv = dampedLeastSquares(J);
+        auto J_pseudo_inv = dampedLeastSquares(J, 2.e-1);
         Eigen::VectorXd tau_ext = Eigen::VectorXd::Zero(J.cols());
 
         for (std::size_t i = 0; i < joint_names_.size(); i++) {
@@ -410,8 +410,14 @@ namespace rvim_position_controllers {
             return controller_interface::return_type::ERROR;
         };
 
-        // get solution
-        Eigen::VectorXd dq = qp_osqp_->getSolution(); // very simple!
+        Eigen::VectorXd dq = Eigen::VectorXd::Zero(kdl_chain_.getNrOfJoints());
+
+        if (qp_osqp_->getStatus() == OsqpEigen::Status::Solved) {
+            // get solution
+            dq = qp_osqp_->getSolution(); // very simple!
+        } else {
+            RCLCPP_WARN(node_->get_logger(), "No solution found.");  // keep dq 0 at singularities
+        }
 
         // OSQP
 
@@ -423,7 +429,7 @@ namespace rvim_position_controllers {
         }
 
 
-        
+
 
         // ********************************************************
         // ******************************************qp formulation
