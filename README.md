@@ -14,6 +14,12 @@ cd rvim_ros2_controllers_experimental_ws && \
 colcon build --allow-overriding qpoases_vendor
 ```
 
+## Execute Tests
+```shell
+source install/setup.bash
+colcon test
+```
+
 ## Example Usage
 
 ```shell

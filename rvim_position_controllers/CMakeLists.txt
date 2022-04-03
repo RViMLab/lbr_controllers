@@ -34,6 +34,7 @@ find_package(OsqpEigen REQUIRED)
 add_library(rvim_position_controllers
   SHARED
   src/hand_guide_position_controller.cpp
+  src/collaborative_twist_position_controller.cpp
 )
 
 target_include_directories(
@@ -84,11 +85,12 @@ if (BUILD_TESTING)
   find_package(ros2_control_test_assets REQUIRED)
 
   ament_add_gmock(
-    test_load_hand_guide_position_controller
+    test_load_controllers
     test/test_load_hand_guide_position_controller.cpp
+    test/test_load_collaborative_twist_position_controller.cpp
   )
-  target_include_directories(test_load_hand_guide_position_controller PRIVATE include)
-  ament_target_dependencies(test_load_hand_guide_position_controller
+  target_include_directories(test_load_controllers PRIVATE include)
+  ament_target_dependencies(test_load_controllers
     rclcpp
     hardware_interface
     controller_manager
