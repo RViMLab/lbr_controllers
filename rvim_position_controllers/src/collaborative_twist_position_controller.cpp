@@ -63,6 +63,21 @@ namespace rvim_position_controllers {
             return CallbackReturn::ERROR;
         }
 
+        // rt middleware buffers
+        twist_command_sub_ = node_->create_subscription<geometry_msgs::msg::Twist>(
+            "~/twist", rclcpp::SystemDefaultsQoS(), [this](const geometry_msgs::msg::Twist::SharedPtr msg) {
+                this->rt_twist_command_ptr_.writeFromNonRT(msg);
+            }
+        );
+
+        wrench_state_pub_ = node_->create_publisher<geometry_msgs::msg::Wrench>(
+            "~/wrench", rclcpp::SystemDefaultsQoS()
+        );
+
+        rt_wrench_state_pub_ = std::make_shared<realtime_tools::RealtimePublisher<geometry_msgs::msg::Wrench>>(
+            wrench_state_pub_
+        );
+
         // load robot description, see http://wiki.ros.org/kdl_parser/Tutorials/Start%20using%20the%20KDL%20parser
         std::string robot_description_string = node_->get_parameter("robot_description").as_string();
         if (!kdl_parser::treeFromString(robot_description_string, tree_)) {
@@ -162,15 +177,24 @@ namespace rvim_position_controllers {
             return CallbackReturn::ERROR;
         }
 
+        // reset rt middleware buffers
+        rt_twist_command_ptr_.reset();
+
         return CallbackReturn::SUCCESS;
     }
 
     CallbackReturn CollaborativeTwistPositionController::on_deactivate(const rclcpp_lifecycle::State& /*previous_state*/) {
         RCLCPP_INFO(node_->get_logger(), "on_deactivate");
+
+        // reset rt middleware buffers
+        rt_twist_command_ptr_.reset();
+
         return CallbackReturn::SUCCESS;
     }
 
     controller_interface::return_type CollaborativeTwistPositionController::update() {
+
+        auto twist = rt_twist_command_ptr_.readFromRT();
 
         // auto f_ext = J_pseudo_inv.transpose()*;
 
@@ -224,6 +248,17 @@ namespace rvim_position_controllers {
         }
 
         Eigen::VectorXd ba = J_pseudo_inv.transpose()*tau_ext;  // ba ~ f_ext, 6 dim
+
+        // publish externally applied force
+        if (rt_wrench_state_pub_->trylock()) {
+            rt_wrench_state_pub_->msg_.force.x = ba[0];
+            rt_wrench_state_pub_->msg_.force.y = ba[1];
+            rt_wrench_state_pub_->msg_.force.z = ba[2];
+            rt_wrench_state_pub_->msg_.torque.x = ba[0];
+            rt_wrench_state_pub_->msg_.torque.y = ba[1];
+            rt_wrench_state_pub_->msg_.torque.z = ba[2];
+            rt_wrench_state_pub_->unlockAndPublish();
+        }
 
         // threshold noise
         ba.head(3) = ba.head(3).unaryExpr([](double d){

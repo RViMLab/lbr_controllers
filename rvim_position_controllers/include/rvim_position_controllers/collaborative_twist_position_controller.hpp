@@ -3,9 +3,14 @@
 #include <vector>
 #include <string>
 
+#include <rclcpp/rclcpp.hpp>
 #include <hardware_interface/loaned_state_interface.hpp>
 #include <hardware_interface/types/hardware_interface_type_values.hpp>
 #include <controller_interface/controller_interface.hpp>
+#include <realtime_tools/realtime_buffer.h>
+#include <realtime_tools/realtime_publisher.h>
+#include <geometry_msgs/msg/twist.hpp>
+#include <geometry_msgs/msg/wrench.hpp>
 
 #include <OsqpEigen/OsqpEigen.h>
 
@@ -45,6 +50,13 @@ namespace rvim_position_controllers {
             std::vector<std::string> joint_names_;
             std::string command_interface_name_;              // for parsing in yaml file (external_torque & position required)
             std::vector<std::string> state_interface_names_;  // for parsing in yaml file (external_torque & position required)
+
+            // twist command subscription and wrench state publisher through realtime middleware
+            realtime_tools::RealtimeBuffer<geometry_msgs::msg::Twist::SharedPtr> rt_twist_command_ptr_;
+            rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr twist_command_sub_;
+
+            rclcpp::Publisher<geometry_msgs::msg::Wrench>::SharedPtr wrench_state_pub_;
+            std::shared_ptr<realtime_tools::RealtimePublisher<geometry_msgs::msg::Wrench>> rt_wrench_state_pub_;
 
             std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface>> position_interfaces_;
             std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface>> external_torque_interfaces_;

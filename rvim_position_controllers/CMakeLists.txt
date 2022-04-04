@@ -29,6 +29,8 @@ find_package(urdf REQUIRED)
 find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OsqpEigen REQUIRED)
+find_package(realtime_tools REQUIRED)
+find_package(geometry_msgs REQUIRED)
 
 ##
 add_library(rvim_position_controllers
@@ -56,6 +58,8 @@ ament_target_dependencies(rvim_position_controllers
   kdl_parser
   urdf
   Eigen3
+  realtime_tools
+  geometry_msgs
 )
 
 target_link_libraries(rvim_position_controllers OsqpEigen::OsqpEigen)
@@ -107,6 +111,8 @@ ament_export_dependencies(
   orocos_kdl
   kdl_parser
   urdf
+  realtime_tools
+  geometry_msgs
 )
 
 ament_export_include_directories(
