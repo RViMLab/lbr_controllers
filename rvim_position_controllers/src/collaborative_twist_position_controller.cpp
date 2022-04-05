@@ -35,6 +35,31 @@ namespace rvim_position_controllers {
 
     CallbackReturn CollaborativeTwistPositionController::on_configure(const rclcpp_lifecycle::State& /*previous_state*/) {
         RCLCPP_INFO(node_->get_logger(), "on_configure");
+        // get joints
+        joint_names_ = node_->get_parameter("joints").as_string_array();
+        if (joint_names_.empty()) {
+            RCLCPP_ERROR(node_->get_logger(), "The joints parameter was empty.");
+            return CallbackReturn::ERROR;
+        }
+
+        // get parameters
+        if (!node_->get_parameter("force_constraint_relaxation", force_constraint_relaxation_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load force_constraint_relaxation parameter");
+            return CallbackReturn::ERROR;
+        }
+        if (!node_->get_parameter("torque_constraint_relaxation", torque_constraint_relaxation_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load torque_constraint_relaxation parameter");
+            return CallbackReturn::ERROR;
+        }
+        if (!node_->get_parameter("force_threshold", force_threshold_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load force_threshold parameter");
+            return CallbackReturn::ERROR;
+        }
+        if (!node_->get_parameter("torque_threshold", torque_threshold_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load torque_threshold parameter");
+            return CallbackReturn::ERROR;
+        }
+
         // configure interfaces
         if (!node_->get_parameter("command_interface", command_interface_name_)) {
             RCLCPP_ERROR(node_->get_logger(), "Failed to load command_interface parameter");
@@ -56,12 +81,6 @@ namespace rvim_position_controllers {
             return CallbackReturn::ERROR;
         }
 
-        // get joints
-        joint_names_ = node_->get_parameter("joints").as_string_array();
-        if (joint_names_.empty()) {
-            RCLCPP_ERROR(node_->get_logger(), "The joints parameter was empty.");
-            return CallbackReturn::ERROR;
-        }
 
         // rt middleware buffers
         twist_command_sub_ = node_->create_subscription<geometry_msgs::msg::Twist>(
@@ -303,16 +322,16 @@ namespace rvim_position_controllers {
         }
 
         // threshold noise
-        ba.head(3) = ba.head(3).unaryExpr([](double d){
-            if (std::abs(d) > 2.) {
+        ba.head(3) = ba.head(3).unaryExpr([this](double d){
+            if (std::abs(d) > force_threshold_) {
                 // double sign = std::signbit(d) ? -1.:1.;
                 return d;
             } else {
                 return 0.;
             }
         });
-        ba.tail(3) = ba.tail(3).unaryExpr([](double d){
-            if (std::abs(d) > 0.5) {
+        ba.tail(3) = ba.tail(3).unaryExpr([this](double d){
+            if (std::abs(d) > torque_threshold_) {
                 // double sign = std::signbit(d) ? -0.5:0.5;
                 return d;
             } else {
@@ -320,10 +339,10 @@ namespace rvim_position_controllers {
             }
         });
 
-        lb_osqp_.head(3) = ba.head(3).array() - 1.;  // 1N, 1Nm
-        lb_osqp_.segment(3, 3) = ba.tail(3).array() - 0.25;  // 1N, 1Nm
-        ub_osqp_.head(3) = ba.head(3).array() + 1.;
-        ub_osqp_.segment(3, 3) = ba.tail(3).array() + 0.25;
+        lb_osqp_.head(3) = ba.head(3).array() - force_constraint_relaxation_;  // 1N, 1Nm
+        lb_osqp_.segment(3, 3) = ba.tail(3).array() - torque_constraint_relaxation_;  // 1N, 1Nm
+        ub_osqp_.head(3) = ba.head(3).array() + force_constraint_relaxation_;
+        ub_osqp_.segment(3, 3) = ba.tail(3).array() + torque_constraint_relaxation_;
 
         // update QP
         if (!qp_osqp_->updateLinearConstraintsMatrix(A_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to update linear constraints matrix."); return controller_interface::return_type::ERROR; };

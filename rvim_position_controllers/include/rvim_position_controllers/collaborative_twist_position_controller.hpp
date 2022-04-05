@@ -93,6 +93,10 @@ namespace rvim_position_controllers {
 
             // upper and lower bounds on joint angles
             Eigen::VectorXd lb_q_, ub_q_;
+
+            // additional parameters
+            double force_constraint_relaxation_, torque_constraint_relaxation_;
+            double force_threshold_, torque_threshold_;
     };
 
 }  // end of namespace rvim_position_controllers
