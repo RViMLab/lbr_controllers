@@ -14,6 +14,7 @@
 
 #include <OsqpEigen/OsqpEigen.h>
 
+#include <urdf/model.h>
 #include <kdl_parser/kdl_parser.hpp>
 #include <kdl/chain.hpp>
 #include <kdl/chainjnttojacsolver.hpp>
@@ -62,6 +63,8 @@ namespace rvim_position_controllers {
             std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface>> external_torque_interfaces_;
 
             // KDL
+            urdf::Model urdf_;
+
             KDL::Tree tree_;
             KDL::Chain kdl_chain_;
 

@@ -80,8 +80,15 @@ namespace rvim_position_controllers {
 
         // load robot description, see http://wiki.ros.org/kdl_parser/Tutorials/Start%20using%20the%20KDL%20parser
         std::string robot_description_string = node_->get_parameter("robot_description").as_string();
-        if (!kdl_parser::treeFromString(robot_description_string, tree_)) {
-            RCLCPP_ERROR(node_->get_logger(), "Failed to construct kdl tree from robot description.");
+
+        // read urdf
+        if (!urdf_.initString(robot_description_string)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to initialize urdf from robot description.");
+            return CallbackReturn::ERROR;
+        };
+
+        if (!kdl_parser::treeFromUrdfModel(urdf_, tree_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to construct kdl tree from urdf.");
             return CallbackReturn::ERROR;
         }
 
@@ -195,6 +202,10 @@ namespace rvim_position_controllers {
     controller_interface::return_type CollaborativeTwistPositionController::update() {
 
         auto twist = rt_twist_command_ptr_.readFromRT();
+
+        // add joint limits (read joint limits from robot description, limits via dt*dq) as inequality constraints
+        // read camera frame rotation wrt base
+        // add desired twist to QP via secondary task
 
         // auto f_ext = J_pseudo_inv.transpose()*;
 
