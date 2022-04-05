@@ -66,14 +66,13 @@ namespace rvim_position_controllers {
             urdf::Model urdf_;
 
             KDL::Tree tree_;
-            KDL::Chain kdl_chain_;
+            KDL::Chain hand_guide_chain_, camera_chain_;
 
-            std::string chain_root_;
-            std::string chain_tip_;
+            std::string base_link_, hand_guide_link_, camera_link_;
 
             KDL::JntArray q_;
             KDL::Jacobian J_;
-            std::unique_ptr<KDL::ChainJntToJacSolver> jac_solver_;
+            std::unique_ptr<KDL::ChainJntToJacSolver> hand_guide_jac_solver_, camera_jac_solver_;
 
             double th_f_=2.;
             double th_d_=1.;
@@ -91,6 +90,9 @@ namespace rvim_position_controllers {
             Eigen::VectorXd g_osqp_, lb_osqp_, ub_osqp_;
             Eigen::VectorXd dq_osqp_;
             Eigen::VectorXd dq_;
+
+            // upper and lower bounds on joint angles
+            Eigen::VectorXd lb_q_, ub_q_;
     };
 
 }  // end of namespace rvim_position_controllers

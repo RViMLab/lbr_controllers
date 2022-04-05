@@ -93,36 +93,58 @@ namespace rvim_position_controllers {
         }
 
         // configure kdl chain by defining root and tip from tree
-        if (!node_->get_parameter("chain_root", chain_root_)) {
-            RCLCPP_ERROR(node_->get_logger(), "Failed to load chain_root parameter, got '%s'.", chain_root_.c_str());
+        if (!node_->get_parameter("base_link", base_link_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load base_link parameter, got '%s'.", base_link_.c_str());
             return CallbackReturn::ERROR;
         };
-        if (!node_->get_parameter("chain_tip", chain_tip_)) {
-            RCLCPP_ERROR(node_->get_logger(), "Failed to load chain_tip parameter, got '%s'.", chain_tip_.c_str());
+        if (!node_->get_parameter("hand_guide_link", hand_guide_link_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load hand_guide_link parameter, got '%s'.", hand_guide_link_.c_str());
             return CallbackReturn::ERROR;
         };
 
-        if (!tree_.getChain(chain_root_, chain_tip_, kdl_chain_)) {
-            RCLCPP_ERROR(node_->get_logger(), "Failed to extract kdl chain with root '%s' and tip '%s'.", chain_root_.c_str(), chain_tip_.c_str());
+        if (!tree_.getChain(base_link_, hand_guide_link_, hand_guide_chain_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to extract kdl chain with root '%s' and tip '%s'.", base_link_.c_str(), hand_guide_link_.c_str());
             return CallbackReturn::ERROR;
         };
+
+        if (!tree_.getChain(base_link_, camera_link_, camera_chain_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to extract kdl chain with root '%s' and tip '%s'.", base_link_.c_str(), camera_link_.c_str());
+            return CallbackReturn::ERROR;
+        };
+
+
+        // lb_q_ = Eigen::VectorXd::Zero(urdf_.joints_.size());
+        // ub_q_ = Eigen::VectorXd::Zero(urdf_.joints_.size());
+        // for (auto& joint: urdf_.joints_) {
+        //     // lb_q_[i] = joint
+        //     // joint.second->limits->lower
+        //     // joint.second->limits->upper
+        // }
+
+        // other objective:
+        // dx (body velocity) = Jdq, J^# dx = dq, as constraint
+        // 
+        // Joint limit conversion: max(dq, mu(q_max-q_i)), see https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.715.4291&rep=rep1&type=pdf section III.B
+        // hierarchy of equality constraints: https://journals.sagepub.com/doi/pdf/10.1177/0278364914521306 section 1.3
+
 
         // allocate joint angles and Jacobian
-        q_.resize(kdl_chain_.getNrOfJoints());
-        J_.resize(kdl_chain_.getNrOfJoints());
+        q_.resize(hand_guide_chain_.getNrOfJoints());
+        J_.resize(hand_guide_chain_.getNrOfJoints());
 
         // create Jacobian solver from kdl chain
-        jac_solver_ = std::make_unique<KDL::ChainJntToJacSolver>(kdl_chain_);
+        hand_guide_jac_solver_ = std::make_unique<KDL::ChainJntToJacSolver>(hand_guide_chain_);
+        camera_jac_solver_ = std::make_unique<KDL::ChainJntToJacSolver>(camera_chain_);
 
         nwsr_ = std::numeric_limits<int>::max();
         cputime_ = 0.005;  // 100 hz
 
-        // build QP
-        H_osqp_.resize(kdl_chain_.getNrOfJoints(), kdl_chain_.getNrOfJoints()); H_osqp_.setIdentity();  // q^T H q
-        A_osqp_.resize(J_.data.rows() + kdl_chain_.getNrOfJoints(), kdl_chain_.getNrOfJoints()); A_osqp_.setZero();  // [J, I]^T
-        g_osqp_ = Eigen::VectorXd::Zero(kdl_chain_.getNrOfJoints());  // trivial -> zeros
-        lb_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints() + J_.data.rows(), -0.01);//std::numeric_limits<int>::lowest());
-        ub_osqp_ = Eigen::VectorXd::Constant(kdl_chain_.getNrOfJoints() + J_.data.rows(),  0.01);//std::numeric_limits<int>::max());
+        // build QP, update sizes
+        H_osqp_.resize(hand_guide_chain_.getNrOfJoints(), hand_guide_chain_.getNrOfJoints()); H_osqp_.setIdentity();  // q^T H q
+        A_osqp_.resize(J_.data.rows() + hand_guide_chain_.getNrOfJoints(), hand_guide_chain_.getNrOfJoints()); A_osqp_.setZero();  // [J, I]^T
+        g_osqp_ = Eigen::VectorXd::Zero(hand_guide_chain_.getNrOfJoints());  // trivial -> zeros
+        lb_osqp_ = Eigen::VectorXd::Constant(hand_guide_chain_.getNrOfJoints() + J_.data.rows(), -0.01);//std::numeric_limits<int>::lowest());
+        ub_osqp_ = Eigen::VectorXd::Constant(hand_guide_chain_.getNrOfJoints() + J_.data.rows(),  0.01);//std::numeric_limits<int>::max());
 
         // identity for bounds on dq_osqp_
         // sparse matrices: https://eigen.tuxfamily.org/dox/group__SparseQuickRefPage.html
@@ -131,13 +153,13 @@ namespace rvim_position_controllers {
             A_osqp_.insert(J_.data.rows()+i, i) = 1.;  // sparse matrix mostly empty, hence inserion required
         }
 
-        dq_osqp_ = Eigen::VectorXd::Zero(kdl_chain_.getNrOfJoints());
+        dq_osqp_ = Eigen::VectorXd::Zero(hand_guide_chain_.getNrOfJoints());
 
         qp_osqp_ = std::make_unique<OsqpEigen::Solver>();
         qp_osqp_->settings()->setVerbosity(false);
         qp_osqp_->settings()->setWarmStart(true);
-        qp_osqp_->data()->setNumberOfVariables(kdl_chain_.getNrOfJoints());
-        qp_osqp_->data()->setNumberOfConstraints(kdl_chain_.getNrOfJoints() + J_.data.rows());
+        qp_osqp_->data()->setNumberOfVariables(hand_guide_chain_.getNrOfJoints());
+        qp_osqp_->data()->setNumberOfConstraints(hand_guide_chain_.getNrOfJoints() + J_.data.rows());
 
         if (!qp_osqp_->data()->setHessianMatrix(H_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to set Hessian matrix."); return CallbackReturn::ERROR; };
         if (!qp_osqp_->data()->setLinearConstraintsMatrix(A_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to set linear constraints matrix."); return CallbackReturn::ERROR; };
@@ -148,7 +170,7 @@ namespace rvim_position_controllers {
         qp_osqp_->settings()->setMaxIteration(nwsr_);
         qp_osqp_->settings()->setTimeLimit(cputime_);
 
-        dq_ = Eigen::VectorXd::Zero(kdl_chain_.getNrOfJoints());
+        dq_ = Eigen::VectorXd::Zero(hand_guide_chain_.getNrOfJoints());
 
         if (!qp_osqp_->initSolver()) {
             RCLCPP_ERROR(node_->get_logger(), "Failed to initialized solver.");
@@ -237,7 +259,7 @@ namespace rvim_position_controllers {
         for (std::size_t i = 0; i < joint_names_.size(); i++) {
             q_.data[i] = position_interfaces_[i].get().get_value();
         }
-        jac_solver_->JntToJac(q_, J_);
+        hand_guide_jac_solver_->JntToJac(q_, J_);
 
         auto J = J_.data;
         auto J_pseudo_inv = dampedLeastSquares(J, 2.e-1);
@@ -305,7 +327,7 @@ namespace rvim_position_controllers {
             return controller_interface::return_type::ERROR;
         };
 
-        Eigen::VectorXd dq = Eigen::VectorXd::Zero(kdl_chain_.getNrOfJoints());
+        Eigen::VectorXd dq = Eigen::VectorXd::Zero(hand_guide_chain_.getNrOfJoints());
 
         if (qp_osqp_->getStatus() == OsqpEigen::Status::Solved) {
             // get solution

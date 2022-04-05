@@ -38,8 +38,9 @@ collaborative_twist_position_controller:
       - lbr_joint_4
       - lbr_joint_5
       - lbr_joint_6
-    chain_root: lbr_link_0
-    chain_tip: lbr_link_ee
+    base_link: lbr_link_0
+    hand_guide_link: lbr_link_ee
+    camera_link: storz_straight_exoscope_hsi_link_cm_optical
     command_interface: position
     state_interfaces:
       - position
