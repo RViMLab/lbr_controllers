@@ -42,6 +42,8 @@ collaborative_twist_position_controller:
     torque_constraint_relaxation: 0.25  # Nm
     force_threshold: 2.0  # N
     torque_threshold: 0.5  # Nm
+    dq_lim: 0.01
+    mu: 0.02
     base_link: lbr_link_0
     hand_guide_link: lbr_link_ee
     camera_link: storz_straight_exoscope_hsi_link_cm_optical

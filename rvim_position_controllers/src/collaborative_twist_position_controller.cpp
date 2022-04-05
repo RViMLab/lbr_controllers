@@ -59,6 +59,14 @@ namespace rvim_position_controllers {
             RCLCPP_ERROR(node_->get_logger(), "Failed to load torque_threshold parameter");
             return CallbackReturn::ERROR;
         }
+        if (!node_->get_parameter("dq_lim", dq_lim_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load dq_lim parameter");
+            return CallbackReturn::ERROR;
+        }
+        if (!node_->get_parameter("mu", mu_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load mu parameter");
+            return CallbackReturn::ERROR;
+        }
 
         // configure interfaces
         if (!node_->get_parameter("command_interface", command_interface_name_)) {
@@ -171,8 +179,8 @@ namespace rvim_position_controllers {
         H_osqp_.resize(hand_guide_chain_.getNrOfJoints(), hand_guide_chain_.getNrOfJoints()); H_osqp_.setIdentity();  // q^T H q
         A_osqp_.resize(J_.data.rows() + hand_guide_chain_.getNrOfJoints(), hand_guide_chain_.getNrOfJoints()); A_osqp_.setZero();  // [J, I]^T
         g_osqp_ = Eigen::VectorXd::Zero(hand_guide_chain_.getNrOfJoints());  // trivial -> zeros
-        lb_osqp_ = Eigen::VectorXd::Constant(hand_guide_chain_.getNrOfJoints() + J_.data.rows(), -0.01);//std::numeric_limits<int>::lowest());
-        ub_osqp_ = Eigen::VectorXd::Constant(hand_guide_chain_.getNrOfJoints() + J_.data.rows(),  0.01);//std::numeric_limits<int>::max());
+        lb_osqp_ = Eigen::VectorXd::Constant(hand_guide_chain_.getNrOfJoints() + J_.data.rows(), -dq_lim_);//std::numeric_limits<int>::lowest());
+        ub_osqp_ = Eigen::VectorXd::Constant(hand_guide_chain_.getNrOfJoints() + J_.data.rows(),  dq_lim_);//std::numeric_limits<int>::max());
 
         // identity for bounds on dq_osqp_
         // sparse matrices: https://eigen.tuxfamily.org/dox/group__SparseQuickRefPage.html
@@ -343,6 +351,11 @@ namespace rvim_position_controllers {
         lb_osqp_.segment(3, 3) = ba.tail(3).array() - torque_constraint_relaxation_;  // 1N, 1Nm
         ub_osqp_.head(3) = ba.head(3).array() + force_constraint_relaxation_;
         ub_osqp_.segment(3, 3) = ba.tail(3).array() + torque_constraint_relaxation_;
+
+        // // update velocity and joint limit bounds, ie max(dq, ~q)
+        // // q_.data()
+        lb_osqp_.tail(hand_guide_chain_.getNrOfJoints()) = (mu_*(lb_q_ - q_.data)).cwiseMax(-dq_lim_);  // https://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.715.4291&rep=rep1&type=pdf section III.B
+        ub_osqp_.tail(hand_guide_chain_.getNrOfJoints()) = (mu_*(ub_q_ - q_.data)).cwiseMin(dq_lim_);
 
         // update QP
         if (!qp_osqp_->updateLinearConstraintsMatrix(A_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to update linear constraints matrix."); return controller_interface::return_type::ERROR; };

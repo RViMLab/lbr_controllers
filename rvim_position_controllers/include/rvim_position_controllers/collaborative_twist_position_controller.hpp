@@ -97,6 +97,8 @@ namespace rvim_position_controllers {
             // additional parameters
             double force_constraint_relaxation_, torque_constraint_relaxation_;
             double force_threshold_, torque_threshold_;
+            double dq_lim_;
+            double mu_;
     };
 
 }  // end of namespace rvim_position_controllers
