@@ -101,6 +101,10 @@ namespace rvim_position_controllers {
             RCLCPP_ERROR(node_->get_logger(), "Failed to load hand_guide_link parameter, got '%s'.", hand_guide_link_.c_str());
             return CallbackReturn::ERROR;
         };
+        if (!node_->get_parameter("camera_link", camera_link_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load hand_guide_link parameter, got '%s'.", camera_link_.c_str());
+            return CallbackReturn::ERROR;
+        };
 
         if (!tree_.getChain(base_link_, hand_guide_link_, hand_guide_chain_)) {
             RCLCPP_ERROR(node_->get_logger(), "Failed to extract kdl chain with root '%s' and tip '%s'.", base_link_.c_str(), hand_guide_link_.c_str());
@@ -113,18 +117,18 @@ namespace rvim_position_controllers {
         };
 
 
-        lb_q_ = Eigen::VectorXd::Zero(urdf_.joints_.size());
-        ub_q_ = Eigen::VectorXd::Zero(urdf_.joints_.size());
+        lb_q_ = Eigen::VectorXd::Zero(joint_names_.size());
+        ub_q_ = Eigen::VectorXd::Zero(joint_names_.size());
 
-        int count = 0;
-        for (auto& joint: urdf_.joints_) {
-            lb_q_[count] = joint.second->limits->lower;
-            ub_q_[count] = joint.second->limits->upper;
+        for (std::size_t i=0; i<joint_names_.size(); i++) {
+            try {
+                lb_q_[i] = urdf_.getJoint(joint_names_[i])->limits->lower;
+                ub_q_[i] = urdf_.getJoint(joint_names_[i])->limits->upper;
+            } catch (const std::exception& e){
+                RCLCPP_ERROR(node_->get_logger(), "Failed to get joint limits with following error: %s.", e.what());
+                return CallbackReturn::ERROR;
+            }
         }
-
-        std::cout << "lb_q_\n" << lb_q_.transpose() << std::endl;
-        std::cout << "ub_q_\n" << ub_q_.transpose() << std::endl;
-
 
         // other objective:
         // dx (body velocity) = Jdq, J^# dx = dq, as constraint
