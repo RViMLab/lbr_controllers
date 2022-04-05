@@ -113,13 +113,18 @@ namespace rvim_position_controllers {
         };
 
 
-        // lb_q_ = Eigen::VectorXd::Zero(urdf_.joints_.size());
-        // ub_q_ = Eigen::VectorXd::Zero(urdf_.joints_.size());
-        // for (auto& joint: urdf_.joints_) {
-        //     // lb_q_[i] = joint
-        //     // joint.second->limits->lower
-        //     // joint.second->limits->upper
-        // }
+        lb_q_ = Eigen::VectorXd::Zero(urdf_.joints_.size());
+        ub_q_ = Eigen::VectorXd::Zero(urdf_.joints_.size());
+
+        int count = 0;
+        for (auto& joint: urdf_.joints_) {
+            lb_q_[count] = joint.second->limits->lower;
+            ub_q_[count] = joint.second->limits->upper;
+        }
+
+        std::cout << "lb_q_\n" << lb_q_.transpose() << std::endl;
+        std::cout << "ub_q_\n" << ub_q_.transpose() << std::endl;
+
 
         // other objective:
         // dx (body velocity) = Jdq, J^# dx = dq, as constraint
@@ -137,7 +142,7 @@ namespace rvim_position_controllers {
         camera_jac_solver_ = std::make_unique<KDL::ChainJntToJacSolver>(camera_chain_);
 
         nwsr_ = std::numeric_limits<int>::max();
-        cputime_ = 0.005;  // 100 hz
+        cputime_ = 0.005;  // 200 hz > 100 hz (control rate)
 
         // build QP, update sizes
         H_osqp_.resize(hand_guide_chain_.getNrOfJoints(), hand_guide_chain_.getNrOfJoints()); H_osqp_.setIdentity();  // q^T H q
