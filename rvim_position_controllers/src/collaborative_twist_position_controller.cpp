@@ -196,7 +196,7 @@ namespace rvim_position_controllers {
         qp_osqp_->settings()->setVerbosity(false);
         qp_osqp_->settings()->setWarmStart(true);
         qp_osqp_->data()->setNumberOfVariables(hand_guide_chain_.getNrOfJoints());
-        qp_osqp_->data()->setNumberOfConstraints(hand_guide_chain_.getNrOfJoints() + J_hand_guide_.data.rows());
+        qp_osqp_->data()->setNumberOfConstraints(hand_guide_chain_.getNrOfJoints() + J_hand_guide_.data.rows() + J_cam_.data.rows());
 
         if (!qp_osqp_->data()->setHessianMatrix(H_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to set Hessian matrix."); return CallbackReturn::ERROR; };
         if (!qp_osqp_->data()->setLinearConstraintsMatrix(A_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to set linear constraints matrix."); return CallbackReturn::ERROR; };
