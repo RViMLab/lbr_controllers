@@ -168,7 +168,7 @@ namespace rvim_position_controllers {
         q_.resize(hand_guide_chain_.getNrOfJoints());
         J_hand_guide_.resize(hand_guide_chain_.getNrOfJoints());
         J_cam_.resize(camera_chain_.getNrOfJoints());
-        twist_cam_.resize(J_cam_.data.rows());
+        twist_cam_ = Eigen::VectorXd::Zero(J_cam_.data.rows());
         adjoint_ = Eigen::MatrixXd::Zero(6, 6);
 
         // create Jacobian solver from kdl chain
@@ -264,13 +264,16 @@ namespace rvim_position_controllers {
     controller_interface::return_type CollaborativeTwistPositionController::update() {
 
         auto twist = rt_twist_command_ptr_.readFromRT();
-        twist_cam_[0] = twist->get()->linear.x;
-        twist_cam_[1] = twist->get()->linear.y;
-        twist_cam_[2] = twist->get()->linear.z;
-        twist_cam_[3] = twist->get()->angular.x;
-        twist_cam_[4] = twist->get()->angular.y;
-        twist_cam_[5] = twist->get()->angular.z;
-
+        if (!twist || !(*twist)) {
+            twist_cam_.setZero();
+        } else {
+            twist_cam_[0] = twist->get()->linear.x;
+            twist_cam_[1] = twist->get()->linear.y;
+            twist_cam_[2] = twist->get()->linear.z;
+            twist_cam_[3] = twist->get()->angular.x;
+            twist_cam_[4] = twist->get()->angular.y;
+            twist_cam_[5] = twist->get()->angular.z;
+        }
 
         // J_cam: dq -> dx, 
 
@@ -346,25 +349,21 @@ namespace rvim_position_controllers {
 
         camera_fk_solver_->JntToCart(q_, cam_);
 
-        p_cam_skew_ << 
-                    0., -cam_.p[2],  cam_.p[1],
-             cam_.p[2],         0., -cam_.p[0],
-            -cam_.p[1],  cam_.p[0],          0.;
+        // p_cam_skew_ << 
+        //             0., -cam_.p[2],  cam_.p[1],
+        //      cam_.p[2],         0., -cam_.p[0],
+        //     -cam_.p[1],  cam_.p[0],          0.;
 
         M_cam_ << 
             cam_.M.data[0], cam_.M.data[1], cam_.M.data[2],
             cam_.M.data[3], cam_.M.data[4], cam_.M.data[5],
             cam_.M.data[6], cam_.M.data[7], cam_.M.data[8];
-        
-        std::cout << p_cam_skew_.transpose() << std::endl;
-        std::cout << M_cam_ << std::endl;
 
         adjoint_ << 
-            M_cam_, p_cam_skew_*M_cam_,
-            Eigen::Matrix3d::Zero(), M_cam_;
+            M_cam_, Eigen::Matrix3d::Zero(),
+            Eigen::Matrix3d::Zero(), M_cam_;  // this isn't really an adjoint transformation
 
         twist_cam_ = adjoint_*twist_cam_;
-        J_cam_.data = adjoint_*J_cam_.data;
 
         // std::cout << p_cam_.transpose() << std::endl;
         // std::cout << M_cam_ << std::endl;
@@ -373,9 +372,9 @@ namespace rvim_position_controllers {
         for (int i = 0; i < J_cam_.data.rows(); i++) {
             for (int j = 0; j < J_cam_.data.cols(); j++) {
                 if (i < 3) {
-                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 3000.*J_cam_(i, j);  // stiffness
+                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 300.*J_cam_(i, j);  // stiffness
                 } else {
-                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 0.*J_cam_(i, j);
+                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 100.*J_cam_(i, j);
                 }
             }
         }
@@ -391,9 +390,9 @@ namespace rvim_position_controllers {
             rt_wrench_state_pub_->msg_.force.x = ba[0];
             rt_wrench_state_pub_->msg_.force.y = ba[1];
             rt_wrench_state_pub_->msg_.force.z = ba[2];
-            rt_wrench_state_pub_->msg_.torque.x = ba[0];
-            rt_wrench_state_pub_->msg_.torque.y = ba[1];
-            rt_wrench_state_pub_->msg_.torque.z = ba[2];
+            rt_wrench_state_pub_->msg_.torque.x = ba[3];
+            rt_wrench_state_pub_->msg_.torque.y = ba[4];
+            rt_wrench_state_pub_->msg_.torque.z = ba[5];
             rt_wrench_state_pub_->unlockAndPublish();
         }
 
@@ -422,10 +421,10 @@ namespace rvim_position_controllers {
         ub_osqp_.segment(3, 3) = ba.tail(3).array() + torque_constraint_relaxation_;
 
         // twist constraints TODO: set constaints
-        lb_osqp_.segment(6, 3) = Eigen::Vector3d::Zero().array() - 0.5;
-        lb_osqp_.segment(9, 3) = Eigen::Vector3d::Zero().array();// - 0.05;
-        ub_osqp_.segment(6, 3) = Eigen::Vector3d::Zero().array() + 0.5;
-        ub_osqp_.segment(9, 3) = Eigen::Vector3d::Zero().array();// + 0.05;
+        lb_osqp_.segment(6, 3) = twist_cam_.head(3);
+        lb_osqp_.segment(9, 3) = twist_cam_.tail(3);
+        ub_osqp_.segment(6, 3) = twist_cam_.head(3);
+        ub_osqp_.segment(9, 3) = twist_cam_.tail(3);
 
         // // update velocity and joint limit bounds, ie max(dq, ~q)
         // // q_.data()
