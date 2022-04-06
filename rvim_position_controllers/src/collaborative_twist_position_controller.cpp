@@ -312,6 +312,7 @@ namespace rvim_position_controllers {
             q_.data[i] = position_interfaces_[i].get().get_value();
         }
         hand_guide_jac_solver_->JntToJac(q_, J_hand_guide_);
+        camera_jac_solver_->JntToJac(q_, J_cam_);
 
         auto J_hand_guide = J_hand_guide_.data;
         auto J_hand_guide_pseudo_inv = dampedLeastSquares(J_hand_guide, 2.e-1);
@@ -372,9 +373,9 @@ namespace rvim_position_controllers {
         for (int i = 0; i < J_cam_.data.rows(); i++) {
             for (int j = 0; j < J_cam_.data.cols(); j++) {
                 if (i < 3) {
-                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 0.; //3000.*J_cam_(i, j);  // stiffness
+                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 3000.*J_cam_(i, j);  // stiffness
                 } else {
-                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 0.; //300.*J_cam_(i, j);
+                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 0.*J_cam_(i, j);
                 }
             }
         }
@@ -421,10 +422,10 @@ namespace rvim_position_controllers {
         ub_osqp_.segment(3, 3) = ba.tail(3).array() + torque_constraint_relaxation_;
 
         // twist constraints TODO: set constaints
-        lb_osqp_.segment(6, 3) = Eigen::Vector3d::Zero();
-        lb_osqp_.segment(9, 3) = Eigen::Vector3d::Zero();
-        ub_osqp_.segment(6, 3) = Eigen::Vector3d::Zero();
-        ub_osqp_.segment(9, 3) = Eigen::Vector3d::Zero();
+        lb_osqp_.segment(6, 3) = Eigen::Vector3d::Zero().array() - 0.5;
+        lb_osqp_.segment(9, 3) = Eigen::Vector3d::Zero().array();// - 0.05;
+        ub_osqp_.segment(6, 3) = Eigen::Vector3d::Zero().array() + 0.5;
+        ub_osqp_.segment(9, 3) = Eigen::Vector3d::Zero().array();// + 0.05;
 
         // // update velocity and joint limit bounds, ie max(dq, ~q)
         // // q_.data()
