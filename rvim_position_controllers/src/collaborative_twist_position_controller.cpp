@@ -168,6 +168,8 @@ namespace rvim_position_controllers {
         q_.resize(hand_guide_chain_.getNrOfJoints());
         J_hand_guide_.resize(hand_guide_chain_.getNrOfJoints());
         J_cam_.resize(camera_chain_.getNrOfJoints());
+        twist_cam_.resize(J_cam_.data.rows());
+        adjoint_ = Eigen::MatrixXd::Zero(6, 6);
 
         // create Jacobian solver from kdl chain
         hand_guide_jac_solver_ = std::make_unique<KDL::ChainJntToJacSolver>(hand_guide_chain_);
@@ -262,6 +264,12 @@ namespace rvim_position_controllers {
     controller_interface::return_type CollaborativeTwistPositionController::update() {
 
         auto twist = rt_twist_command_ptr_.readFromRT();
+        twist_cam_[0] = twist->get()->linear.x;
+        twist_cam_[1] = twist->get()->linear.y;
+        twist_cam_[2] = twist->get()->linear.z;
+        twist_cam_[3] = twist->get()->angular.x;
+        twist_cam_[4] = twist->get()->angular.y;
+        twist_cam_[5] = twist->get()->angular.z;
 
 
         // J_cam: dq -> dx, 
@@ -350,6 +358,12 @@ namespace rvim_position_controllers {
         std::cout << p_cam_skew_.transpose() << std::endl;
         std::cout << M_cam_ << std::endl;
 
+        adjoint_ << 
+            M_cam_, p_cam_skew_*M_cam_,
+            Eigen::Matrix3d::Zero(), M_cam_;
+
+        twist_cam_ = adjoint_*twist_cam_;
+        J_cam_.data = adjoint_*J_cam_.data;
 
         // std::cout << p_cam_.transpose() << std::endl;
         // std::cout << M_cam_ << std::endl;

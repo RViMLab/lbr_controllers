@@ -76,7 +76,9 @@ namespace rvim_position_controllers {
             KDL::Jacobian J_hand_guide_, J_cam_;
             KDL::Frame cam_;
             Eigen::Matrix3d p_cam_skew_; // translation and rotation of camera
-            Eigen::Matrix3d M_cam_; // 
+            Eigen::Matrix3d M_cam_; //
+            Eigen::VectorXd twist_cam_;
+            Eigen::MatrixXd adjoint_; 
 
             std::unique_ptr<KDL::ChainJntToJacSolver> hand_guide_jac_solver_, camera_jac_solver_;
             std::unique_ptr<KDL::ChainFkSolverPos> camera_fk_solver_;
