@@ -71,7 +71,8 @@ namespace rvim_position_controllers {
             std::string base_link_, hand_guide_link_, camera_link_;
 
             KDL::JntArray q_;
-            KDL::Jacobian J_;
+            KDL::Jacobian J_hand_guide_, J_cam_;
+
             std::unique_ptr<KDL::ChainJntToJacSolver> hand_guide_jac_solver_, camera_jac_solver_;
 
             double th_f_=2.;

@@ -166,7 +166,8 @@ namespace rvim_position_controllers {
 
         // allocate joint angles and Jacobian
         q_.resize(hand_guide_chain_.getNrOfJoints());
-        J_.resize(hand_guide_chain_.getNrOfJoints());
+        J_hand_guide_.resize(hand_guide_chain_.getNrOfJoints());
+        J_cam_.resize(camera_chain_.getNrOfJoints());
 
         // create Jacobian solver from kdl chain
         hand_guide_jac_solver_ = std::make_unique<KDL::ChainJntToJacSolver>(hand_guide_chain_);
@@ -177,16 +178,16 @@ namespace rvim_position_controllers {
 
         // build QP, update sizes
         H_osqp_.resize(hand_guide_chain_.getNrOfJoints(), hand_guide_chain_.getNrOfJoints()); H_osqp_.setIdentity();  // q^T H q
-        A_osqp_.resize(J_.data.rows() + hand_guide_chain_.getNrOfJoints(), hand_guide_chain_.getNrOfJoints()); A_osqp_.setZero();  // [J, I]^T
+        A_osqp_.resize(J_hand_guide_.data.rows() + J_cam_.data.rows() + hand_guide_chain_.getNrOfJoints(), hand_guide_chain_.getNrOfJoints()); A_osqp_.setZero();  // [J, I]^T
         g_osqp_ = Eigen::VectorXd::Zero(hand_guide_chain_.getNrOfJoints());  // trivial -> zeros
-        lb_osqp_ = Eigen::VectorXd::Constant(hand_guide_chain_.getNrOfJoints() + J_.data.rows(), -dq_lim_);//std::numeric_limits<int>::lowest());
-        ub_osqp_ = Eigen::VectorXd::Constant(hand_guide_chain_.getNrOfJoints() + J_.data.rows(),  dq_lim_);//std::numeric_limits<int>::max());
+        lb_osqp_ = Eigen::VectorXd::Constant(hand_guide_chain_.getNrOfJoints() + J_hand_guide_.data.rows() + J_cam_.data.rows(), -dq_lim_);//std::numeric_limits<int>::lowest());
+        ub_osqp_ = Eigen::VectorXd::Constant(hand_guide_chain_.getNrOfJoints() + J_hand_guide_.data.rows() + J_cam_.data.rows(),  dq_lim_);//std::numeric_limits<int>::max());
 
         // identity for bounds on dq_osqp_
         // sparse matrices: https://eigen.tuxfamily.org/dox/group__SparseQuickRefPage.html
         // manipulation: https://eigen.tuxfamily.org/dox/group__TutorialSparse.html
-        for (int i = 0; i < J_.data.cols(); i ++) {
-            A_osqp_.insert(J_.data.rows()+i, i) = 1.;  // sparse matrix mostly empty, hence inserion required
+        for (int i = 0; i < J_hand_guide_.data.cols(); i ++) {
+            A_osqp_.insert(J_hand_guide_.data.rows()+J_cam_.data.rows()+i, i) = 1.;  // sparse matrix mostly empty, hence inserion required
         }
 
         dq_osqp_ = Eigen::VectorXd::Zero(hand_guide_chain_.getNrOfJoints());
@@ -195,7 +196,7 @@ namespace rvim_position_controllers {
         qp_osqp_->settings()->setVerbosity(false);
         qp_osqp_->settings()->setWarmStart(true);
         qp_osqp_->data()->setNumberOfVariables(hand_guide_chain_.getNrOfJoints());
-        qp_osqp_->data()->setNumberOfConstraints(hand_guide_chain_.getNrOfJoints() + J_.data.rows());
+        qp_osqp_->data()->setNumberOfConstraints(hand_guide_chain_.getNrOfJoints() + J_hand_guide_.data.rows());
 
         if (!qp_osqp_->data()->setHessianMatrix(H_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to set Hessian matrix."); return CallbackReturn::ERROR; };
         if (!qp_osqp_->data()->setLinearConstraintsMatrix(A_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to set linear constraints matrix."); return CallbackReturn::ERROR; };
@@ -295,28 +296,43 @@ namespace rvim_position_controllers {
         for (std::size_t i = 0; i < joint_names_.size(); i++) {
             q_.data[i] = position_interfaces_[i].get().get_value();
         }
-        hand_guide_jac_solver_->JntToJac(q_, J_);
+        hand_guide_jac_solver_->JntToJac(q_, J_hand_guide_);
 
-        auto J = J_.data;
-        auto J_pseudo_inv = dampedLeastSquares(J, 2.e-1);
-        Eigen::VectorXd tau_ext = Eigen::VectorXd::Zero(J.cols());
+        auto J_hand_guide = J_hand_guide_.data;
+        auto J_hand_guide_pseudo_inv = dampedLeastSquares(J_hand_guide, 2.e-1);
+        Eigen::VectorXd tau_ext = Eigen::VectorXd::Zero(J_hand_guide.cols());
 
         for (std::size_t i = 0; i < joint_names_.size(); i++) {
             tau_ext[i] = external_torque_interfaces_[i].get().get_value();
         }
 
-        // threshold tau_ext?
-        for (int i = 0; i < J.rows(); i++) {
-            for (int j = 0; j < J.cols(); j++) {
+        // generate linear constraints matrix, using J_hand, J_cam. Adjustable weights?
+        for (int i = 0; i < J_hand_guide.rows(); i++) {
+            for (int j = 0; j < J_hand_guide.cols(); j++) {
                 if (i < 3) {
-                    A_osqp_.coeffRef(i, j) = 3000.*J(i, j);
+                    A_osqp_.coeffRef(i, j) = 3000.*J_hand_guide(i, j);  // stiffness
                 } else {
-                    A_osqp_.coeffRef(i, j) = 300.*J(i, j);
+                    A_osqp_.coeffRef(i, j) = 300.*J_hand_guide(i, j);
                 }
             }
         }
 
-        Eigen::VectorXd ba = J_pseudo_inv.transpose()*tau_ext;  // ba ~ f_ext, 6 dim
+        // TODO: replace by jac
+        for (int i = 0; i < J_cam_.data.rows(); i++) {
+            for (int j = 0; j < J_cam_.data.cols(); j++) {
+                if (i < 3) {
+                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 0.; //3000.*J_cam_(i, j);  // stiffness
+                } else {
+                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 0.; //300.*J_cam_(i, j);
+                }
+            }
+        }
+
+        // J dq = bound == twist, [twist, wrench = J^# tau, q_bound]
+
+
+
+        Eigen::VectorXd ba = J_hand_guide_pseudo_inv.transpose()*tau_ext;  // ba ~ f_ext, 6 dim
 
         // publish externally applied force
         if (rt_wrench_state_pub_->trylock()) {
@@ -347,10 +363,17 @@ namespace rvim_position_controllers {
             }
         });
 
+        // wrench contraints
         lb_osqp_.head(3) = ba.head(3).array() - force_constraint_relaxation_;  // 1N, 1Nm
         lb_osqp_.segment(3, 3) = ba.tail(3).array() - torque_constraint_relaxation_;  // 1N, 1Nm
         ub_osqp_.head(3) = ba.head(3).array() + force_constraint_relaxation_;
         ub_osqp_.segment(3, 3) = ba.tail(3).array() + torque_constraint_relaxation_;
+
+        // twist constraints TODO: set constaints
+        lb_osqp_.segment(6, 3) = Eigen::Vector3d::Zero();
+        lb_osqp_.segment(9, 3) = Eigen::Vector3d::Zero();
+        ub_osqp_.segment(6, 3) = Eigen::Vector3d::Zero();
+        ub_osqp_.segment(9, 3) = Eigen::Vector3d::Zero();
 
         // // update velocity and joint limit bounds, ie max(dq, ~q)
         // // q_.data()
