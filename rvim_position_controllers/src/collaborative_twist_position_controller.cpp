@@ -172,6 +172,7 @@ namespace rvim_position_controllers {
         // create Jacobian solver from kdl chain
         hand_guide_jac_solver_ = std::make_unique<KDL::ChainJntToJacSolver>(hand_guide_chain_);
         camera_jac_solver_ = std::make_unique<KDL::ChainJntToJacSolver>(camera_chain_);
+        camera_fk_solver_ = std::make_unique<KDL::ChainFkSolverPos_recursive>(camera_chain_);
 
         nwsr_ = std::numeric_limits<int>::max();
         cputime_ = 0.005;  // 200 hz > 100 hz (control rate)
@@ -262,6 +263,12 @@ namespace rvim_position_controllers {
 
         auto twist = rt_twist_command_ptr_.readFromRT();
 
+
+        // J_cam: dq -> dx, 
+
+
+        // twist in body frame to world frame
+
         // add joint limits (read joint limits from robot description, limits via dt*dq) as inequality constraints
         // read camera frame rotation wrt base
         // add desired twist to QP via secondary task
@@ -317,6 +324,36 @@ namespace rvim_position_controllers {
                 }
             }
         }
+
+
+
+
+        // twist wrt camera frame, body velocity
+        // Jdq = dx, wrt base
+        // transform to dx_cam, as seen from camera
+        // Adj Jdq = Adj dx == twist
+        // Adj being the adjoint transformation
+        // Adj = [R, p x R], where x = cross product, hence p in its skew symmetric form
+        //       [0,     R]
+
+        camera_fk_solver_->JntToCart(q_, cam_);
+
+        p_cam_skew_ << 
+                    0., -cam_.p[2],  cam_.p[1],
+             cam_.p[2],         0., -cam_.p[0],
+            -cam_.p[1],  cam_.p[0],          0.;
+
+        M_cam_ << 
+            cam_.M.data[0], cam_.M.data[1], cam_.M.data[2],
+            cam_.M.data[3], cam_.M.data[4], cam_.M.data[5],
+            cam_.M.data[6], cam_.M.data[7], cam_.M.data[8];
+        
+        std::cout << p_cam_skew_.transpose() << std::endl;
+        std::cout << M_cam_ << std::endl;
+
+
+        // std::cout << p_cam_.transpose() << std::endl;
+        // std::cout << M_cam_ << std::endl;
 
         // TODO: replace by jac
         for (int i = 0; i < J_cam_.data.rows(); i++) {
