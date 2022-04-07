@@ -110,7 +110,7 @@ namespace rvim_position_controllers {
         );
 
         class_prob_sub_ = node_->create_subscription<std_msgs::msg::Float64MultiArray>(
-            "~/class_probability", rclcpp::SystemDefaultsQoS(), [this](const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
+            "~/class_probabilities", rclcpp::SystemDefaultsQoS(), [this](const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
                 this->rt_class_prob_ptr_.writeFromNonRT(msg);
             }
         );
