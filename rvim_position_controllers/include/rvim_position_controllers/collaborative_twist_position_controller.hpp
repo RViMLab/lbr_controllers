@@ -11,6 +11,7 @@
 #include <realtime_tools/realtime_publisher.h>
 #include <geometry_msgs/msg/twist.hpp>
 #include <geometry_msgs/msg/wrench.hpp>
+#include <std_msgs/msg/float64_multi_array.hpp>
 
 #include <OsqpEigen/OsqpEigen.h>
 
@@ -61,6 +62,10 @@ namespace rvim_position_controllers {
             rclcpp::Publisher<geometry_msgs::msg::Wrench>::SharedPtr wrench_state_pub_;
             std::shared_ptr<realtime_tools::RealtimePublisher<geometry_msgs::msg::Wrench>> rt_wrench_state_pub_;
 
+            // wrench/twist control weight subscribers (as obtained through classifying network)
+            realtime_tools::RealtimeBuffer<std_msgs::msg::Float64MultiArray::SharedPtr> rt_class_prob_ptr_;
+            rclcpp::Subscription<std_msgs::msg::Float64MultiArray>::SharedPtr class_prob_sub_;
+
             std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface>> position_interfaces_;
             std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface>> external_torque_interfaces_;
 
@@ -79,6 +84,7 @@ namespace rvim_position_controllers {
             Eigen::Matrix3d M_cam_; //
             Eigen::VectorXd twist_cam_;
             Eigen::MatrixXd adjoint_; 
+            Eigen::VectorXd class_prob_;
 
             std::unique_ptr<KDL::ChainJntToJacSolver> hand_guide_jac_solver_, camera_jac_solver_;
             std::unique_ptr<KDL::ChainFkSolverPos> camera_fk_solver_;
@@ -108,6 +114,7 @@ namespace rvim_position_controllers {
             double force_threshold_, torque_threshold_;
             double dq_lim_;
             double mu_;
+            uint n_classes_;
     };
 
 }  // end of namespace rvim_position_controllers

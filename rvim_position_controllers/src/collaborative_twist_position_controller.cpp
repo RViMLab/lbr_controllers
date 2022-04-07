@@ -67,6 +67,10 @@ namespace rvim_position_controllers {
             RCLCPP_ERROR(node_->get_logger(), "Failed to load mu parameter");
             return CallbackReturn::ERROR;
         }
+        if (!node_->get_parameter("n_classes", n_classes_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load n_classes parameters");
+            return CallbackReturn::ERROR;
+        }
 
         // configure interfaces
         if (!node_->get_parameter("command_interface", command_interface_name_)) {
@@ -103,6 +107,12 @@ namespace rvim_position_controllers {
 
         rt_wrench_state_pub_ = std::make_shared<realtime_tools::RealtimePublisher<geometry_msgs::msg::Wrench>>(
             wrench_state_pub_
+        );
+
+        class_prob_sub_ = node_->create_subscription<std_msgs::msg::Float64MultiArray>(
+            "~/class_probability", rclcpp::SystemDefaultsQoS(), [this](const std_msgs::msg::Float64MultiArray::SharedPtr msg) {
+                this->rt_class_prob_ptr_.writeFromNonRT(msg);
+            }
         );
 
         // load robot description, see http://wiki.ros.org/kdl_parser/Tutorials/Start%20using%20the%20KDL%20parser
@@ -170,6 +180,8 @@ namespace rvim_position_controllers {
         J_cam_.resize(camera_chain_.getNrOfJoints());
         twist_cam_ = Eigen::VectorXd::Zero(J_cam_.data.rows());
         adjoint_ = Eigen::MatrixXd::Zero(6, 6);
+        class_prob_ = Eigen::VectorXd::Zero(n_classes_);
+
 
         // create Jacobian solver from kdl chain
         hand_guide_jac_solver_ = std::make_unique<KDL::ChainJntToJacSolver>(hand_guide_chain_);
@@ -275,6 +287,18 @@ namespace rvim_position_controllers {
             twist_cam_[5] = twist->get()->angular.z;
         }
 
+        // read class probabilities
+        auto class_prob = rt_class_prob_ptr_.readFromRT();
+        if (!class_prob || !(*class_prob)) {
+            class_prob_.setZero(); // by setting weights to zero, only joint limits will be optimized for
+        } else {
+            if (class_prob->get()->layout.dim[0].size != n_classes_) {
+                RCLCPP_ERROR(node_->get_logger(), "Expected %d class probabilities, got %d.", n_classes_,  class_prob->get()->layout.dim[0].size);
+                return controller_interface::return_type::ERROR;
+            }
+            class_prob_ = Eigen::VectorXd::Map(class_prob->get()->data.data(), class_prob->get()->layout.dim[0].size);
+        }
+
         // J_cam: dq -> dx, 
 
 
@@ -329,9 +353,9 @@ namespace rvim_position_controllers {
         for (int i = 0; i < J_hand_guide.rows(); i++) {
             for (int j = 0; j < J_hand_guide.cols(); j++) {
                 if (i < 3) {
-                    A_osqp_.coeffRef(i, j) = 3000.*J_hand_guide(i, j);  // stiffness
+                    A_osqp_.coeffRef(i, j) = 3000.*J_hand_guide(i, j)*class_prob_[0];  // stiffness
                 } else {
-                    A_osqp_.coeffRef(i, j) = 300.*J_hand_guide(i, j);
+                    A_osqp_.coeffRef(i, j) = 300.*J_hand_guide(i, j)*class_prob_[0];
                 }
             }
         }
@@ -372,9 +396,9 @@ namespace rvim_position_controllers {
         for (int i = 0; i < J_cam_.data.rows(); i++) {
             for (int j = 0; j < J_cam_.data.cols(); j++) {
                 if (i < 3) {
-                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 300.*J_cam_(i, j);  // stiffness
+                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 300.*J_cam_(i, j)*class_prob_[1];  // stiffness
                 } else {
-                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 100.*J_cam_(i, j);
+                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 100.*J_cam_(i, j)*class_prob_[1];
                 }
             }
         }
@@ -415,16 +439,16 @@ namespace rvim_position_controllers {
         });
 
         // wrench contraints
-        lb_osqp_.head(3) = ba.head(3).array() - force_constraint_relaxation_;  // 1N, 1Nm
-        lb_osqp_.segment(3, 3) = ba.tail(3).array() - torque_constraint_relaxation_;  // 1N, 1Nm
-        ub_osqp_.head(3) = ba.head(3).array() + force_constraint_relaxation_;
-        ub_osqp_.segment(3, 3) = ba.tail(3).array() + torque_constraint_relaxation_;
+        lb_osqp_.head(3) = class_prob_[0]*ba.head(3).array() - force_constraint_relaxation_;  // 1N, 1Nm
+        lb_osqp_.segment(3, 3) = class_prob_[0]*ba.tail(3).array() - torque_constraint_relaxation_;  // 1N, 1Nm
+        ub_osqp_.head(3) = class_prob_[0]*ba.head(3).array() + force_constraint_relaxation_;
+        ub_osqp_.segment(3, 3) = class_prob_[0]*ba.tail(3).array() + torque_constraint_relaxation_;
 
         // twist constraints TODO: set constaints
-        lb_osqp_.segment(6, 3) = twist_cam_.head(3);
-        lb_osqp_.segment(9, 3) = twist_cam_.tail(3);
-        ub_osqp_.segment(6, 3) = twist_cam_.head(3);
-        ub_osqp_.segment(9, 3) = twist_cam_.tail(3);
+        lb_osqp_.segment(6, 3) = class_prob_[1]*twist_cam_.head(3);
+        lb_osqp_.segment(9, 3) = class_prob_[1]*twist_cam_.tail(3);
+        ub_osqp_.segment(6, 3) = class_prob_[1]*twist_cam_.head(3);
+        ub_osqp_.segment(9, 3) = class_prob_[1]*twist_cam_.tail(3);
 
         // // update velocity and joint limit bounds, ie max(dq, ~q)
         // // q_.data()
