@@ -51,6 +51,8 @@ namespace rvim_position_controllers {
             controller_interface::return_type update() override;
 
         protected:
+            bool resetOsqp_();
+
             std::vector<std::string> joint_names_;
             std::string command_interface_name_;              // for parsing in yaml file (external_torque & position required)
             std::vector<std::string> state_interface_names_;  // for parsing in yaml file (external_torque & position required)

@@ -258,14 +258,20 @@ namespace rvim_position_controllers {
             return CallbackReturn::ERROR;
         }
 
+        if (!this->resetOsqp_()) { return CallbackReturn::ERROR; };
+
         // reset rt middleware buffers
         rt_twist_command_ptr_.reset();
+
+
 
         return CallbackReturn::SUCCESS;
     }
 
     CallbackReturn CollaborativeTwistPositionController::on_deactivate(const rclcpp_lifecycle::State& /*previous_state*/) {
         RCLCPP_INFO(node_->get_logger(), "on_deactivate");
+
+        if (!this->resetOsqp_()) { return CallbackReturn::ERROR; };
 
         // reset rt middleware buffers
         rt_twist_command_ptr_.reset();
@@ -483,6 +489,29 @@ namespace rvim_position_controllers {
         }
 
         return controller_interface::return_type::OK;
+    }
+
+    bool CollaborativeTwistPositionController::resetOsqp_() {
+        if (!qp_osqp_->clearSolverVariables()) { RCLCPP_ERROR(node_->get_logger(), "Failed to clear solver variables."); return false; };
+
+        H_osqp_.setIdentity();  // q^T H q
+        A_osqp_.setZero();  // [J, I]^T
+        g_osqp_.setZero();
+        lb_osqp_.setConstant(-dq_lim_);
+        ub_osqp_.setConstant(dq_lim_);
+
+        A_osqp_.setZero();
+        for (int i = 0; i < J_hand_guide_.data.cols(); i ++) {
+            A_osqp_.insert(J_hand_guide_.data.rows()+J_cam_.data.rows()+i, i) = 1.;  // sparse matrix mostly empty, hence inserion required
+        }
+
+        if (!qp_osqp_->updateHessianMatrix(H_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to update Hessian matrix."); return false; };
+        if (!qp_osqp_->updateLinearConstraintsMatrix(A_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to update linear constraints matrix."); return false; };
+        if (!qp_osqp_->updateGradient(g_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to update gradient vector."); return false; };
+        if (!qp_osqp_->updateLowerBound(lb_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to update lower bounds."); return false; };
+        if (!qp_osqp_->updateUpperBound(ub_osqp_)) { RCLCPP_ERROR(node_->get_logger(), "Failed to update upper bounds."); return false; };
+    
+        return true;
     }
 
 }  // end of namespace rvim_position_controllers
