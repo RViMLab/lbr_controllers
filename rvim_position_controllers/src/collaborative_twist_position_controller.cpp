@@ -355,7 +355,7 @@ namespace rvim_position_controllers {
                 if (i < 3) {
                     A_osqp_.coeffRef(i, j) = 3000.*J_hand_guide(i, j)*class_prob_[0];  // stiffness
                 } else {
-                    A_osqp_.coeffRef(i, j) = 300.*J_hand_guide(i, j)*class_prob_[0];
+                    A_osqp_.coeffRef(i, j) = 300.*J_hand_guide(i, j)*class_prob_[1];
                 }
             }
         }
@@ -396,9 +396,9 @@ namespace rvim_position_controllers {
         for (int i = 0; i < J_cam_.data.rows(); i++) {
             for (int j = 0; j < J_cam_.data.cols(); j++) {
                 if (i < 3) {
-                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 300.*J_cam_(i, j)*class_prob_[1];  // stiffness
+                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 300.*J_cam_(i, j)*class_prob_[2];  // stiffness
                 } else {
-                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 100.*J_cam_(i, j)*class_prob_[1];
+                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 100.*J_cam_(i, j)*class_prob_[3];
                 }
             }
         }
@@ -440,15 +440,15 @@ namespace rvim_position_controllers {
 
         // wrench contraints
         lb_osqp_.head(3) = class_prob_[0]*ba.head(3).array() - force_constraint_relaxation_;  // 1N, 1Nm
-        lb_osqp_.segment(3, 3) = class_prob_[0]*ba.tail(3).array() - torque_constraint_relaxation_;  // 1N, 1Nm
+        lb_osqp_.segment(3, 3) = class_prob_[1]*ba.tail(3).array() - torque_constraint_relaxation_;  // 1N, 1Nm
         ub_osqp_.head(3) = class_prob_[0]*ba.head(3).array() + force_constraint_relaxation_;
-        ub_osqp_.segment(3, 3) = class_prob_[0]*ba.tail(3).array() + torque_constraint_relaxation_;
+        ub_osqp_.segment(3, 3) = class_prob_[1]*ba.tail(3).array() + torque_constraint_relaxation_;
 
         // twist constraints TODO: set constaints
-        lb_osqp_.segment(6, 3) = class_prob_[1]*twist_cam_.head(3);
-        lb_osqp_.segment(9, 3) = class_prob_[1]*twist_cam_.tail(3);
-        ub_osqp_.segment(6, 3) = class_prob_[1]*twist_cam_.head(3);
-        ub_osqp_.segment(9, 3) = class_prob_[1]*twist_cam_.tail(3);
+        lb_osqp_.segment(6, 3) = class_prob_[2]*twist_cam_.head(3);
+        lb_osqp_.segment(9, 3) = class_prob_[3]*twist_cam_.tail(3);
+        ub_osqp_.segment(6, 3) = class_prob_[2]*twist_cam_.head(3);
+        ub_osqp_.segment(9, 3) = class_prob_[3]*twist_cam_.tail(3);
 
         // // update velocity and joint limit bounds, ie max(dq, ~q)
         // // q_.data()
