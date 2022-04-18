@@ -45,6 +45,10 @@ collaborative_twist_position_controller:
     dq_lim: 0.02
     mu: 0.01
     n_classes: 4
+    pos_stiffness_ee: 3000.
+    ori_stiffness_ee: 300.
+    pos_stiffness_cam: 300.
+    ori_stiffness_cam: 50.
     base_link: lbr_link_0
     hand_guide_link: lbr_link_ee
     camera_link: storz_straight_exoscope_hsi_link_cm_optical
