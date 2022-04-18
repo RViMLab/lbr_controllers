@@ -12,6 +12,7 @@
 #include <geometry_msgs/msg/twist.hpp>
 #include <geometry_msgs/msg/wrench.hpp>
 #include <std_msgs/msg/float64_multi_array.hpp>
+#include <rcl_interfaces/msg/set_parameters_result.hpp>
 
 #include <OsqpEigen/OsqpEigen.h>
 
@@ -96,7 +97,7 @@ namespace rvim_position_controllers {
 
             // frequency filtering, exponential smoothing
             std::vector<double> prev_update_ = std::vector<double>(7, 0.);
-            double alpha_ = 0.98;
+            double alpha_ = 0.96;
 
             int nwsr_;
             double cputime_;  // max cpu time in seconds
@@ -117,6 +118,10 @@ namespace rvim_position_controllers {
             double dq_lim_;
             double mu_;
             uint n_classes_;
+            double pos_stiffness_ee_, ori_stiffness_ee_, pos_stiffness_cam_, ori_stiffness_cam_;
+
+            // parameter callback handles
+            rclcpp::Node::OnSetParametersCallbackHandle::SharedPtr paramHandle_;
     };
 
 }  // end of namespace rvim_position_controllers

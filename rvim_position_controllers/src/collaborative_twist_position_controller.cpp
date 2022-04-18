@@ -68,7 +68,23 @@ namespace rvim_position_controllers {
             return CallbackReturn::ERROR;
         }
         if (!node_->get_parameter("n_classes", n_classes_)) {
-            RCLCPP_ERROR(node_->get_logger(), "Failed to load n_classes parameters");
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load n_classes parameter");
+            return CallbackReturn::ERROR;
+        }
+        if (!node_->get_parameter("pos_stiffness_ee", pos_stiffness_ee_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load pos_stiffness_ee parameter");
+            return CallbackReturn::ERROR;
+        }
+        if (!node_->get_parameter("ori_stiffness_ee", ori_stiffness_ee_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load ori_stiffness_ee parameter");
+            return CallbackReturn::ERROR;
+        }
+        if (!node_->get_parameter("pos_stiffness_cam", pos_stiffness_cam_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load pos_stiffness_cam parameter");
+            return CallbackReturn::ERROR;
+        }
+        if (!node_->get_parameter("ori_stiffness_cam", ori_stiffness_cam_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load ori_stiffness_cam parameter");
             return CallbackReturn::ERROR;
         }
 
@@ -93,6 +109,56 @@ namespace rvim_position_controllers {
             return CallbackReturn::ERROR;
         }
 
+        // parameter callbacks, not a nice way to do this, see rather https://github.com/ros2/rclcpp/issues/1190
+        paramHandle_ = this->node_->add_on_set_parameters_callback(
+            [this] (const std::vector<rclcpp::Parameter>& parameters) -> rcl_interfaces::msg::SetParametersResult {
+                rcl_interfaces::msg::SetParametersResult result;
+                result.successful = true;
+                result.reason = "success";
+
+                for (auto& param: parameters) {
+                    if (param.get_name() == "force_constraint_relaxation") {
+                        RCLCPP_INFO(this->node_->get_logger(), "Setting force_constraint_relaxation to %f", param.as_double());
+                        this->force_constraint_relaxation_ = param.as_double();
+                    } else if (param.get_name() == "torque_constraint_relaxation") {
+                        RCLCPP_INFO(this->node_->get_logger(), "Setting torque_constraint_relaxation to %f", param.as_double());
+                        this->torque_constraint_relaxation_ = param.as_double();
+                    } else if (param.get_name() == "force_threshold") {
+                        RCLCPP_INFO(this->node_->get_logger(), "Setting force_threshold to %f", param.as_double());
+                        this->force_threshold_ = param.as_double();
+                    } else if (param.get_name() == "torque_threshold") {
+                        RCLCPP_INFO(this->node_->get_logger(), "Setting torque_threshold to %f", param.as_double());
+                        this->torque_threshold_ = param.as_double();
+                    } else if (param.get_name() == "dq_lim") {
+                        RCLCPP_INFO(this->node_->get_logger(), "Setting dq_lim to %f", param.as_double());
+                        this->dq_lim_ = param.as_double();
+                    } else if (param.get_name() == "mu") {
+                        RCLCPP_INFO(this->node_->get_logger(), "Setting mu to %f", param.as_double());
+                        this->mu_ = param.as_double();
+                    } else if (param.get_name() == "n_classes") {
+                        RCLCPP_INFO(this->node_->get_logger(), "Setting n_classes to %d", param.as_int());
+                        this->n_classes_ = param.as_int();
+                    } else if (param.get_name() == "pos_stiffness_ee") {
+                        RCLCPP_INFO(this->node_->get_logger(), "Setting pos_stiffness_ee to %f", param.as_double());
+                        this->pos_stiffness_ee_ = param.as_double();
+                    } else if (param.get_name() == "ori_stiffness_ee") {
+                        RCLCPP_INFO(this->node_->get_logger(), "Setting ori_stiffness_ee to %f", param.as_double());
+                        this->ori_stiffness_ee_ = param.as_double();
+                    } else if (param.get_name() == "pos_stiffness_cam") {
+                        RCLCPP_INFO(this->node_->get_logger(), "Setting pos_stiffness_cam to %f", param.as_double());
+                        this->pos_stiffness_cam_ = param.as_double();
+                    } else if (param.get_name() == "ori_stiffness_cam") {
+                        RCLCPP_INFO(this->node_->get_logger(), "Setting ori_stiffness_cam to %f", param.as_double());
+                        this->ori_stiffness_cam_ = param.as_double();
+                    } else {
+                        result.successful = false;
+                        result.reason = "tyring to set unkown parameter " + param.get_name();
+                    }
+                }
+
+                return result;
+            }
+        );
 
         // rt middleware buffers
         twist_command_sub_ = node_->create_subscription<geometry_msgs::msg::Twist>(
@@ -280,10 +346,14 @@ namespace rvim_position_controllers {
     }
 
     controller_interface::return_type CollaborativeTwistPositionController::update() {
-
         auto twist = rt_twist_command_ptr_.readFromRT();
         if (!twist || !(*twist)) {
             twist_cam_.setZero();
+            return controller_interface::return_type::OK;
+        } 
+        else if (std::isnan(twist->get()->linear.x)) {
+            twist_cam_.setZero();
+            return controller_interface::return_type::OK;
         } else {
             twist_cam_[0] = twist->get()->linear.x;
             twist_cam_[1] = twist->get()->linear.y;
@@ -293,16 +363,20 @@ namespace rvim_position_controllers {
             twist_cam_[5] = twist->get()->angular.z;
         }
 
+        // twist_cam_.tail(3).setZero(); // why?
+
         // read class probabilities
         auto class_prob = rt_class_prob_ptr_.readFromRT();
         if (!class_prob || !(*class_prob)) {
             class_prob_.setZero(); // by setting weights to zero, only joint limits will be optimized for
+            return controller_interface::return_type::OK;
         } else {
             if (class_prob->get()->layout.dim[0].size != n_classes_) {
                 RCLCPP_ERROR(node_->get_logger(), "Expected %d class probabilities, got %d.", n_classes_,  class_prob->get()->layout.dim[0].size);
                 return controller_interface::return_type::ERROR;
             }
             class_prob_ = Eigen::VectorXd::Map(class_prob->get()->data.data(), class_prob->get()->layout.dim[0].size);
+            // RCLCPP_INFO(node_->get_logger(), "got prob: %f, %f, %f, %f", class_prob_[0], class_prob_[1], class_prob_[2], class_prob_[3]);
         }
 
         // J_cam: dq -> dx, 
@@ -359,12 +433,14 @@ namespace rvim_position_controllers {
         for (int i = 0; i < J_hand_guide.rows(); i++) {
             for (int j = 0; j < J_hand_guide.cols(); j++) {
                 if (i < 3) {
-                    A_osqp_.coeffRef(i, j) = 3000.*J_hand_guide(i, j)*class_prob_[0];  // stiffness
+                    A_osqp_.coeffRef(i, j) = pos_stiffness_ee_*J_hand_guide(i, j)*class_prob_[0];  // stiffness
                 } else {
-                    A_osqp_.coeffRef(i, j) = 300.*J_hand_guide(i, j)*class_prob_[1];
+                    A_osqp_.coeffRef(i, j) = ori_stiffness_ee_*J_hand_guide(i, j)*class_prob_[1];
                 }
             }
         }
+
+        // RCLCPP_INFO(node_->get_logger(), "got pos_stiffness_ee_: %f", pos_stiffness_ee_);
 
 
 
@@ -402,9 +478,9 @@ namespace rvim_position_controllers {
         for (int i = 0; i < J_cam_.data.rows(); i++) {
             for (int j = 0; j < J_cam_.data.cols(); j++) {
                 if (i < 3) {
-                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 300.*J_cam_(i, j)*class_prob_[2];  // stiffness
+                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = pos_stiffness_cam_*J_cam_(i, j)*class_prob_[2];  // stiffness
                 } else {
-                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = 100.*J_cam_(i, j)*class_prob_[3];
+                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = ori_stiffness_cam_*J_cam_(i, j)*class_prob_[3];
                 }
             }
         }
