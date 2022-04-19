@@ -29,6 +29,7 @@
 // see forward command controller for an example: https://github.com/ros-controls/ros2_controllers/blob/foxy/forward_command_controller/include/forward_command_controller/forward_command_controller.hpp
 // cartesian controller: http://library.isr.ist.utl.pt/docs/roswiki/pr2_mechanism(2f)Tutorials(2f)Coding(20)a(20)realtime(20)Cartesian(20)controller(20)with(20)KDL.html
 // replicate previous hand guiding mode
+// singularity avoidance: https://arxiv.org/pdf/2109.13349.pdf
 
 namespace rvim_position_controllers {
 
@@ -97,10 +98,6 @@ namespace rvim_position_controllers {
 
             // frequency filtering, exponential smoothing
             std::vector<double> prev_update_ = std::vector<double>(7, 0.);
-            double alpha_ = 0.96;
-
-            int nwsr_;
-            double cputime_;  // max cpu time in seconds
 
             // osqp-eigen
             std::unique_ptr<OsqpEigen::Solver> qp_osqp_;
@@ -108,6 +105,7 @@ namespace rvim_position_controllers {
             Eigen::VectorXd g_osqp_, lb_osqp_, ub_osqp_;
             Eigen::VectorXd dq_osqp_;
             Eigen::VectorXd dq_;
+            Eigen::VectorXd prev_dq_;
 
             // upper and lower bounds on joint angles
             Eigen::VectorXd lb_q_, ub_q_;
@@ -119,6 +117,10 @@ namespace rvim_position_controllers {
             double mu_;
             uint n_classes_;
             double pos_stiffness_ee_, ori_stiffness_ee_, pos_stiffness_cam_, ori_stiffness_cam_;
+            double damping_;
+            double alpha_;
+            int nwsr_;
+            double cputime_;  // max cpu time in seconds
 
             // parameter callback handles
             rclcpp::Node::OnSetParametersCallbackHandle::SharedPtr paramHandle_;

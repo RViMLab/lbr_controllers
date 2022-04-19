@@ -87,6 +87,24 @@ namespace rvim_position_controllers {
             RCLCPP_ERROR(node_->get_logger(), "Failed to load ori_stiffness_cam parameter");
             return CallbackReturn::ERROR;
         }
+        if (!node_->get_parameter("damping", damping_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load damping parameter");
+            return CallbackReturn::ERROR;
+        }
+        if (!node_->get_parameter("alpha", alpha_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load alpha parameter");
+            return CallbackReturn::ERROR;
+        }
+        if (!node_->get_parameter("nwsr", nwsr_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load nwsr parameter");
+            return CallbackReturn::ERROR;
+        }
+        if (!node_->get_parameter("cputime", cputime_)) {
+            RCLCPP_ERROR(node_->get_logger(), "Failed to load cputime parameter");
+            return CallbackReturn::ERROR;
+        }
+
+
 
         // configure interfaces
         if (!node_->get_parameter("command_interface", command_interface_name_)) {
@@ -150,6 +168,18 @@ namespace rvim_position_controllers {
                     } else if (param.get_name() == "ori_stiffness_cam") {
                         RCLCPP_INFO(this->node_->get_logger(), "Setting ori_stiffness_cam to %f", param.as_double());
                         this->ori_stiffness_cam_ = param.as_double();
+                    } else if (param.get_name() == "damping") {
+                        RCLCPP_INFO(this->node_->get_logger(), "Setting damping to %f", param.as_double());
+                        this->damping_ = param.as_double();
+                    } else if (param.get_name() == "alpha") {
+                        RCLCPP_INFO(this->node_->get_logger(), "Setting alpha to %f", param.as_double());
+                        this->alpha_ = param.as_double();
+                    } else if (param.get_name() == "nwsr") {
+                        RCLCPP_INFO(this->node_->get_logger(), "Setting nwsr to %d", param.as_int());
+                        this->nwsr_ = param.as_int();
+                    } else if (param.get_name() == "cputime") {
+                        RCLCPP_INFO(this->node_->get_logger(), "Setting cputime to %f", param.as_double());
+                        this->cputime_ = param.as_double();
                     } else {
                         result.successful = false;
                         result.reason = "tyring to set unkown parameter " + param.get_name();
@@ -276,6 +306,8 @@ namespace rvim_position_controllers {
         qp_osqp_ = std::make_unique<OsqpEigen::Solver>();
         qp_osqp_->settings()->setVerbosity(false);
         qp_osqp_->settings()->setWarmStart(true);
+        qp_osqp_->settings()->setAbsoluteTolerance(1.e-3);
+        qp_osqp_->settings()->setRelativeTolerance(1.e-4);
         qp_osqp_->data()->setNumberOfVariables(hand_guide_chain_.getNrOfJoints());
         qp_osqp_->data()->setNumberOfConstraints(hand_guide_chain_.getNrOfJoints() + J_hand_guide_.data.rows() + J_cam_.data.rows());
 
@@ -289,6 +321,7 @@ namespace rvim_position_controllers {
         qp_osqp_->settings()->setTimeLimit(cputime_);
 
         dq_ = Eigen::VectorXd::Zero(hand_guide_chain_.getNrOfJoints());
+        prev_dq_ = Eigen::VectorXd::Zero(hand_guide_chain_.getNrOfJoints());
 
         if (!qp_osqp_->initSolver()) {
             RCLCPP_ERROR(node_->get_logger(), "Failed to initialized solver.");
@@ -349,11 +382,10 @@ namespace rvim_position_controllers {
         auto twist = rt_twist_command_ptr_.readFromRT();
         if (!twist || !(*twist)) {
             twist_cam_.setZero();
-            return controller_interface::return_type::OK;
-        } 
-        else if (std::isnan(twist->get()->linear.x)) {
+            // return controller_interface::return_type::OK;
+        } else if (std::isnan(twist->get()->linear.x)) {
             twist_cam_.setZero();
-            return controller_interface::return_type::OK;
+            // return controller_interface::return_type::OK;
         } else {
             twist_cam_[0] = twist->get()->linear.x;
             twist_cam_[1] = twist->get()->linear.y;
@@ -422,7 +454,7 @@ namespace rvim_position_controllers {
         camera_jac_solver_->JntToJac(q_, J_cam_);
 
         auto J_hand_guide = J_hand_guide_.data;
-        auto J_hand_guide_pseudo_inv = dampedLeastSquares(J_hand_guide, 2.e-1);
+        auto J_hand_guide_pseudo_inv = dampedLeastSquares(J_hand_guide, damping_);
         Eigen::VectorXd tau_ext = Eigen::VectorXd::Zero(J_hand_guide.cols());
 
         for (std::size_t i = 0; i < joint_names_.size(); i++) {
@@ -430,12 +462,18 @@ namespace rvim_position_controllers {
         }
 
         // generate linear constraints matrix, using J_hand, J_cam. Adjustable weights?
+        
+        A_osqp_.setZero();
+        for (int i = 0; i < J_hand_guide_.data.cols(); i ++) {
+            A_osqp_.insert(J_hand_guide_.data.rows()+J_cam_.data.rows()+i, i) = 1.;  // sparse matrix mostly empty, hence inserion required
+        }
+
         for (int i = 0; i < J_hand_guide.rows(); i++) {
             for (int j = 0; j < J_hand_guide.cols(); j++) {
                 if (i < 3) {
-                    A_osqp_.coeffRef(i, j) = pos_stiffness_ee_*J_hand_guide(i, j)*class_prob_[0];  // stiffness
+                    A_osqp_.insert(i, j) = pos_stiffness_ee_*J_hand_guide(i, j)*class_prob_[0];  // stiffness
                 } else {
-                    A_osqp_.coeffRef(i, j) = ori_stiffness_ee_*J_hand_guide(i, j)*class_prob_[1];
+                    A_osqp_.insert(i, j) = ori_stiffness_ee_*J_hand_guide(i, j)*class_prob_[1];
                 }
             }
         }
@@ -478,9 +516,9 @@ namespace rvim_position_controllers {
         for (int i = 0; i < J_cam_.data.rows(); i++) {
             for (int j = 0; j < J_cam_.data.cols(); j++) {
                 if (i < 3) {
-                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = pos_stiffness_cam_*J_cam_(i, j)*class_prob_[2];  // stiffness
+                    A_osqp_.insert(i + J_hand_guide.rows(), j) = pos_stiffness_cam_*J_cam_(i, j)*class_prob_[2];  // stiffness
                 } else {
-                    A_osqp_.coeffRef(i + J_hand_guide.rows(), j) = ori_stiffness_cam_*J_cam_(i, j)*class_prob_[3];
+                    A_osqp_.insert(i + J_hand_guide.rows(), j) = ori_stiffness_cam_*J_cam_(i, j)*class_prob_[3];
                 }
             }
         }
@@ -553,14 +591,50 @@ namespace rvim_position_controllers {
         if (qp_osqp_->getStatus() == OsqpEigen::Status::Solved) {
             // get solution
             dq = qp_osqp_->getSolution(); // very simple!
+            // prev_dq_ = dq;
         } else {
             RCLCPP_WARN(node_->get_logger(), "No solution found.");  // keep dq 0 at singularities
+            // dq = prev_dq_;
+            // qp_osqp_->
         }
+
+        // // threshold low velocities, since there is no feedback on the absolute position in the controller to correct for drift
+        // // alternatively use PID, with integral term
+        // dq = dq.unaryExpr([this](double d) {
+        //     if (std::abs(d) < 1.e-4) {
+        //         return 0.;
+        //     } else {
+        //         return d;
+        //     }
+        // });
 
         // execute solution
         for (std::size_t i = 0; i < joint_names_.size(); i++) {
             dq_[i] = alpha_*dq_[i] + (1-alpha_)*dq[i];
             // RCLCPP_INFO(node_->get_logger(), "%f", dq[i]);
+        }
+
+        // // threshold low velocities, since there is no feedback on the absolute position in the controller to correct for drift
+        // // alternatively use PID, with integral term
+        // dq_ = dq_.unaryExpr([this](double d) {
+        //     if (std::abs(d) < 1.e-5) {
+        //         return 0.;
+        //     } else {
+        //         return d;
+        //     }
+        // });
+
+        // std::cout << "dq: " << dq_.transpose() << std::endl;
+
+        if (dq_.isApprox(Eigen::VectorXd::Zero(dq_.size()), 1.e-7)) {
+            for (std::size_t i = 0; i < joint_names_.size(); i++) {
+                command_interfaces_[i].set_value(position_interfaces_[i].get().get_value());
+            }
+            return controller_interface::return_type::OK;
+        }
+
+
+        for (std::size_t i = 0; i < joint_names_.size(); i++) {
             command_interfaces_[i].set_value(position_interfaces_[i].get().get_value() + dq_[i]);
         }
 
@@ -576,7 +650,9 @@ namespace rvim_position_controllers {
         lb_osqp_.setConstant(-dq_lim_);
         ub_osqp_.setConstant(dq_lim_);
 
-        A_osqp_.setZero();
+        dq_.setZero();
+        prev_dq_.setZero();
+
         for (int i = 0; i < J_hand_guide_.data.cols(); i ++) {
             A_osqp_.insert(J_hand_guide_.data.rows()+J_cam_.data.rows()+i, i) = 1.;  // sparse matrix mostly empty, hence inserion required
         }
