@@ -22,4 +22,4 @@ ros2 launch lbr_bringup lbr_bringup.launch.py model:=med7 controller_configurati
 ```
 
 ## Write a new controller
-http://control.ros.org/ros2_controllers/doc/writing_new_controller.html
+https://control.ros.org/foxy/doc/ros2_controllers/doc/writing_new_controller.html
