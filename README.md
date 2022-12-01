@@ -4,8 +4,8 @@
 Clone all dependencies
 ```shell
 mkdir -p rvim_ros2_controllers_experimental_ws/src && \
-wget https://raw.githubusercontent.com/RViMLab/rvim_ros2_controllers_experimental/dev-osqp-foxy/rvim_ros2_controllers_experimental/repos.yml -O rvim_ros2_controllers_experimental_ws/repos.yml && \
-vcs import rvim_ros2_controllers_experimental_ws/src < rvim_ros2_controllers_experimental_ws/repos.yml
+wget https://raw.githubusercontent.com/RViMLab/rvim_ros2_controllers_experimental/dev-osqp-foxy/rvim_ros2_controllers_experimental/src/repos.yml -O rvim_ros2_controllers_experimental_ws/repos.yml && \
+vcs import rvim_ros2_controllers_experimental_ws/src < rvim_ros2_controllers_experimental_ws/src/repos.yml
 ```
 Build the controllers
 ```shell
