@@ -36,7 +36,6 @@ find_package(std_msgs REQUIRED)
 add_library(rvim_position_controllers
   SHARED
   src/hand_guide_position_controller.cpp
-  src/collaborative_twist_position_controller.cpp
 )
 
 target_include_directories(
@@ -91,7 +90,6 @@ if (BUILD_TESTING)
   ament_add_gmock(
     test_load_controllers
     test/test_load_hand_guide_position_controller.cpp
-    test/test_load_collaborative_twist_position_controller.cpp
   )
   target_include_directories(test_load_controllers PRIVATE include)
   ament_target_dependencies(test_load_controllers

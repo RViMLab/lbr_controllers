@@ -5,11 +5,4 @@
       Hand guide controller, solves QP avoiding forces that are externally applied to the end effector.
     </description>
   </class>
-
-  <!-- collaborative twist position controller -->
-  <class name="rvim_position_controllers/CollaborativeTwistPositionController" type="rvim_position_controllers::CollaborativeTwistPositionController" base_class_type="controller_interface::ControllerInterface">
-    <description>
-      Collaborative controller, solves QP primarily avoiding forces that are externally applied to the end effector, and secondarily executes end effector twists.
-    </description>
-  </class>
 </library>
