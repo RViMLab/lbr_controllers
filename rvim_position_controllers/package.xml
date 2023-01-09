@@ -23,6 +23,7 @@
   <depend>realtime_tools</depend>
   <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>
+  <depend>control_toolbox</depend>
   <depend>rcl_interfaces</depend>
 
   <build_depend>pluginlib</build_depend>

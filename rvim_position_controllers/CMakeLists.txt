@@ -31,6 +31,7 @@ find_package(OsqpEigen REQUIRED)
 find_package(realtime_tools REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(control_toolbox REQUIRED)
 
 ##
 add_library(rvim_position_controllers
@@ -59,6 +60,7 @@ ament_target_dependencies(rvim_position_controllers
   realtime_tools
   geometry_msgs
   std_msgs
+  control_toolbox
 )
 
 target_link_libraries(rvim_position_controllers OsqpEigen::OsqpEigen)
@@ -111,6 +113,7 @@ ament_export_dependencies(
   realtime_tools
   geometry_msgs
   std_msgs
+  control_toolbox
 )
 
 ament_export_include_directories(
