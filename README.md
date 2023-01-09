@@ -11,7 +11,7 @@ Build the controllers
 ```shell
 source /opt/ros/foxy/setup.bash && \
 cd rvim_ros2_controllers_experimental_ws && \
-colcon build --allow-overriding qpoases_vendor
+colcon build
 ```
 
 ## Example Usage

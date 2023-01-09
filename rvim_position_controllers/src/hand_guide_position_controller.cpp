@@ -91,21 +91,6 @@ namespace rvim_position_controllers {
         // create Jacobian solver from kdl chain
         jac_solver_ = std::make_unique<KDL::ChainJntToJacSolver>(kdl_chain_);
 
-        // // create quadratic problem
-        // options_.printLevel = qpOASES::PL_LOW;
-        // qp_ = std::make_unique<qpOASES::SQProblem>(kdl_chain_.getNrOfJoints(), 6, qpOASES::HST_IDENTITY);
-        // qp_->setOptions(options_);
-
-        // H_ = RowMajorMatrixXd::Identity(kdl_chain_.getNrOfJoints(), kdl_chain_.getNrOfJoints());
-        // A_ = RowMajorMatrixXd::Zero(J_.data.rows(), J_.data.cols());
-        // g_ = Eigen::RowVectorXd::Zero(kdl_chain_.getNrOfJoints());
-        // lb_ = Eigen::RowVectorXd::Constant(kdl_chain_.getNrOfJoints(), std::numeric_limits<double>::lowest());
-        // ub_ = Eigen::RowVectorXd::Constant(kdl_chain_.getNrOfJoints(), std::numeric_limits<double>::max());
-        // lba_ = Eigen::RowVectorXd::Constant(6, std::numeric_limits<double>::lowest());
-        // uba_ = Eigen::RowVectorXd::Constant(6, std::numeric_limits<double>::max());
-
-        // 
-
         nwsr_ = std::numeric_limits<int>::max();
         cputime_ = 0.005;  // 100 hz
 
@@ -223,127 +208,6 @@ namespace rvim_position_controllers {
         // // A ~ Jac
         // // lb, ub, -inf, +inf
         // // lbA, upA, lbA = ubA (equality)
-
-
-        // // qpOASES
-        // // compute jacobian
-        // for (std::size_t i = 0; i < joint_names_.size(); i++) {
-        //     q_.data[i] = position_interfaces_[i].get().get_value();
-        // }
-        // jac_solver_->JntToJac(q_, J_);
-
-        // auto J = J_.data;
-        // auto J_pseudo_inv = dampedLeastSquares(J);
-        // Eigen::RowVectorXd tau_ext = Eigen::VectorXd::Zero(J.cols());
-
-        // for (std::size_t i = 0; i < joint_names_.size(); i++) {
-        //     tau_ext[i] = external_torque_interfaces_[i].get().get_value();
-        // }
-
-        // // threshold tau_ext? 
-
-        // A_ = J;  // 0.01 = K
-        // A_.topRows(3) *= 2500.;
-        // A_.bottomRows(3) *= 500.;
-        // Eigen::RowVectorXd ba = tau_ext*J_pseudo_inv;
-
-        // // threshold noise
-        // ba.head(3) = ba.head(3).unaryExpr([](double d){
-        //     if (std::abs(d) > 2.) {
-        //         // double sign = std::signbit(d) ? -1.:1.;
-        //         return d;
-        //     } else {
-        //         return 0.;
-        //     }
-        // });
-        // ba.tail(3) = ba.tail(3).unaryExpr([](double d){
-        //     if (std::abs(d) > 0.5) {
-        //         // double sign = std::signbit(d) ? -0.5:0.5;
-        //         return d;
-        //     } else {
-        //         return 0.;
-        //     }
-        // });
-
-        // std::cout << "ba: " << ba << std::endl;
-        // lba_.head(3) = ba.head(3).array() - 1.;  // 1N, 1Nm
-        // lba_.tail(3) = ba.tail(3).array() - 0.25;  // 1N, 1Nm
-        // uba_.head(3) = ba.head(3).array() + 1.;
-        // uba_.tail(3) = ba.tail(3).array() + 0.25;
-
-
-        // // uba_.setConstant(std::numeric_limits<double>::max()); lba_.setConstant(std::numeric_limits<double>::lowest());
-        // // std::cout << "ba:\n " << ba << std::endl;
-        // // std::cout << "lba:\n" << lba_ << std::endl;
-        // // std::cout << "uba:\n" << uba_ << std::endl;
-
-        // // // std::cout << "A: \n" << A_ << std::endl;
-        // // // std::cout << "g: \n" << g_ << std::endl;
-        // // // std::cout << "ba:\n" << ba_ << std::endl;
-        // // std::cout << "lb:\n" << lb_ << std::endl;
-        // // std::cout << "ub:\n" << ub_ << std::endl;
-        // // std::cout << "nwsr: " << nwsr_ << std::endl;
-
-        // // find solution given cpu constraints
-        // int nwsr_tmp_ = nwsr_;
-        // if (!qp_init_) {
-        //     auto ret = qp_->init(
-        //         nullptr,  // trivial qp
-        //         g_.data(), 
-        //         A_.data(), 
-        //         lb_.data(), 
-        //         ub_.data(), 
-        //         lba_.data(), 
-        //         uba_.data(), 
-        //         nwsr_tmp_, 
-        //         &cputime_
-        //     );
-        //     if (ret != qpOASES::SUCCESSFUL_RETURN) {
-        //         RCLCPP_ERROR(node_->get_logger(), "Failed init solve SQP: qpOASES::returnValue::%d.", ret);
-        //         // dq_.setZero();
-        //         return controller_interface::return_type::ERROR; 
-        //     }
-
-        //     // qp_osqp_->data()
-
-
-        //     // // OSQP
-        //     // auto ret = qp_osqp_->solveProblem();
-        //     // if (ret != OsqpEigen::ErrorExitFlag::NoError) {
-        //     //     RCLCPP_ERROR(node_->get_logger(), "Failed init solve QP.");
-        //     //     return controller_interface::return_type::ERROR;
-        //     // };
-
-        //     qp_init_ = true;
-        // } else {
-        //     auto ret = qp_->hotstart(
-        //         nullptr,  // trivial qp
-        //         g_.data(), 
-        //         A_.data(), 
-        //         lb_.data(), 
-        //         ub_.data(), 
-        //         lba_.data(), 
-        //         uba_.data(), 
-        //         nwsr_tmp_, 
-        //         &cputime_
-        //     );
-        //     // if (ret != qpOASES::SUCCESSFUL_RETURN) {
-        //     //     RCLCPP_ERROR(node_->get_logger(), "Failed hotstart solve SQP: qpOASES::returnValue::%d.", ret);
-        //     //     // dq_.setZero();
-        //     //     return controller_interface::return_type::ERROR; 
-        //     // }
-        // }
-
-        // // get solution
-        // Eigen::RowVectorXd dq = Eigen::RowVectorXd::Zero(dq_.size());
-        // qp_->getPrimalSolution(dq.data());
-        // std::cout << "dq: " << dq << std::endl;
-
-        // // qpOASES
-
-
-
-
 
         // OSQP
         // compute jacobian
@@ -514,45 +378,6 @@ namespace rvim_position_controllers {
     }
 
 }  // end of namespace rvim_position_controllers
-
-// create controller, load controller, print hello world
-
-
-// J_ee tau = f_ext ~ dx, if f > f_th... J_ee# J_ee tau, simply -tau?
-// J_cam H = dx, if f < f_th, view ~ f_ext
-// J_ns tau
-// J \in 6x7, J_nx = (1-J#J) \in 7x7
-//
-// control rotation via homography in translational nullspace? ie send omega via pub sub
-
-// J      dq = dx
-// J^T f_ext = tau
-// ->
-// dq = (J^T#K)#Gh
-// K stiffness, G gain, h wrench == 0
-// see https://mediatum.ub.tum.de/doc/1244171/677139536966.pdf
-// and https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=6696601
-
-// joint limits
-// omega
-// end-effector force
-
-//
-
-// min dq,    s.t. J   dq    = dx
-//     f_ext       J^t f_ext = 0 
-
-// how to obtain Jacobian?
-// how to link qpoases?
-
-// input:
-// tau_ext (state interface), dx (homography in vision node)
-
-// control (joint impedance control mode with target position):
-// qp with hot start
-// q_i-1 + dt dq = q_i (target)
-
-
 
 #include <pluginlib/class_list_macros.hpp>
 

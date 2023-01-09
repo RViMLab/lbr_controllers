@@ -14,7 +14,6 @@
   <depend>rclcpp_lifecycle</depend>
   <depend>hardware_interface</depend>
   <depend>controller_interface</depend>
-  <depend>qpoases_vendor</depend>
   <depend>orocos_kdl</depend>
   <depend>kdl_parser</depend>
   <depend>urdf</depend>

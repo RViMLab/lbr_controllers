@@ -22,7 +22,6 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(hardware_interface REQUIRED)
 find_package(controller_interface REQUIRED)
 find_package(pluginlib REQUIRED)
-find_package(qpoases_vendor REQUIRED)
 find_package(orocos_kdl REQUIRED)
 find_package(kdl_parser REQUIRED)
 find_package(urdf REQUIRED)
@@ -50,7 +49,6 @@ ament_target_dependencies(rvim_position_controllers
   rclcpp_lifecycle
   controller_interface
   pluginlib
-  qpoases_vendor
   orocos_kdl
   kdl_parser
   urdf
@@ -100,7 +98,6 @@ ament_export_dependencies(
   rclcpp_lifecycle
   controller_interface
   pluginlib
-  qpoases_vendor
   orocos_kdl
   kdl_parser
   urdf
