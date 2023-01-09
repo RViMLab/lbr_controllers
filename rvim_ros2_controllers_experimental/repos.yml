@@ -2,7 +2,7 @@ repositories:
   rvim_ros2_controllers_experimental:
     type: git
     url: https://github.com/RViMLab/rvim_ros2_controllers_experimental.git
-    version: foxy
+    version: dev-humble
   osqp_vendor:
     type: git
     url: https://github.com/mhubii/osqp_vendor.git

@@ -17,13 +17,17 @@
   <depend>orocos_kdl</depend>
   <depend>kdl_parser</depend>
   <depend>urdf</depend>
-  <depend>eigen3</depend>
+  <depend>eigen</depend>
   <!-- <depend>osqp_vendor</depend> -->
   <depend>osqp_eigen_vendor</depend>
+  <depend>realtime_tools</depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>rcl_interfaces</depend>
 
   <build_depend>pluginlib</build_depend>
 
-  <test_depend>ament_add_gmock</test_depend>
+  <test_depend>ament_cmake_gtest</test_depend>
   <test_depend>controller_manager</test_depend>
   <test_depend>ros2_control_test_assets</test_depend>
 
