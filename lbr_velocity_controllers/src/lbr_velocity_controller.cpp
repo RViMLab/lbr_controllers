@@ -2,10 +2,15 @@
 
 namespace lbr_velocity_controllers {
 LBRVelocityController::LBRVelocityController()
-    : joint_velocity_command_rt_buffer_(nullptr), joint_velocity_command_subscription_(nullptr),
+    : velocity_control_rule_(std::make_unique<VelocityControlRule>(lbr_fri_ros2::LBR::JOINT_DOF)),
+      joint_velocity_command_rt_buffer_(nullptr), joint_velocity_command_subscription_(nullptr),
       command_interface_names_{hardware_interface::HW_IF_POSITION},
       state_interface_names_{hardware_interface::HW_IF_POSITION,
-                             hardware_interface::HW_IF_VELOCITY} {}
+                             hardware_interface::HW_IF_VELOCITY},
+      current_position_(lbr_fri_ros2::LBR::JOINT_DOF, std::numeric_limits<double>::quiet_NaN()),
+      current_velocity_(lbr_fri_ros2::LBR::JOINT_DOF, std::numeric_limits<double>::quiet_NaN()),
+      desired_velocity_(lbr_fri_ros2::LBR::JOINT_DOF, std::numeric_limits<double>::quiet_NaN()),
+      position_command_(lbr_fri_ros2::LBR::JOINT_DOF, std::numeric_limits<double>::quiet_NaN()) {}
 
 controller_interface::InterfaceConfiguration
 LBRVelocityController::command_interface_configuration() const {
@@ -51,13 +56,16 @@ LBRVelocityController::on_configure(const rclcpp_lifecycle::State & /*previous_s
                            joint_velocity_command->data.size(), lbr_fri_ros2::LBR::JOINT_DOF);
               return;
             }
-            joint_velocity_command_rt_buffer_->writeFromNonRT(joint_velocity_command);
+            joint_velocity_command_rt_buffer_.writeFromNonRT(joint_velocity_command);
           });
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
 controller_interface::CallbackReturn
 LBRVelocityController::on_activate(const rclcpp_lifecycle::State & /*previous_state*/) {
+  if (!init_rt_buffer_()) {
+    return controller_interface::CallbackReturn::ERROR;
+  }
   if (!clear_command_interfaces_()) {
     return controller_interface::CallbackReturn::ERROR;
   }
@@ -70,12 +78,14 @@ LBRVelocityController::on_activate(const rclcpp_lifecycle::State & /*previous_st
   if (!reference_state_interfaces_()) {
     return controller_interface::CallbackReturn::ERROR;
   }
-  joint_velocity_command_rt_buffer_.reset();
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
 controller_interface::CallbackReturn
 LBRVelocityController::on_deactivate(const rclcpp_lifecycle::State & /*previous_state*/) {
+  if (!init_rt_buffer_()) {
+    return controller_interface::CallbackReturn::ERROR;
+  }
   if (!clear_command_interfaces_()) {
     return controller_interface::CallbackReturn::ERROR;
   }
@@ -85,8 +95,23 @@ LBRVelocityController::on_deactivate(const rclcpp_lifecycle::State & /*previous_
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
-controller_interface::return_type
-LBRVelocityController::update(const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/) {
+controller_interface::return_type LBRVelocityController::update(const rclcpp::Time & /*time*/,
+                                                                const rclcpp::Duration &/*period*/) {
+  for (uint8_t i = 0; i < lbr_fri_ros2::LBR::JOINT_DOF; ++i) {
+    current_position_[i] = position_state_interfaces_[i].get().get_value();
+    current_velocity_[i] = velocity_state_interfaces_[i].get().get_value();
+  }
+  auto joint_velocity_command = joint_velocity_command_rt_buffer_.readFromRT();
+  if (!joint_velocity_command || !(*joint_velocity_command)) {
+    return controller_interface::return_type::OK;
+  }
+  desired_velocity_ = (*joint_velocity_command)->data;
+
+  velocity_control_rule_->compute(current_position_, current_velocity_, desired_velocity_,
+                                  0.01, position_command_); // TODO: replace time!
+  for (uint8_t i = 0; i < lbr_fri_ros2::LBR::JOINT_DOF; ++i) {
+    position_command_interfaces_[i].get().set_value(position_command_[i]);
+  }
   return controller_interface::return_type::OK;
 }
 
@@ -124,12 +149,28 @@ bool LBRVelocityController::read_parameters_() {
   return true;
 }
 
+bool LBRVelocityController::init_rt_buffer_() {
+  try {
+    joint_velocity_command_rt_buffer_ =
+        realtime_tools::RealtimeBuffer<std_msgs::msg::Float64MultiArray::SharedPtr>(nullptr);
+  } catch (const std::exception &e) {
+    RCLCPP_ERROR(get_node()->get_logger(), "Failed to initialize rt buffer.\n%s.", e.what());
+    return false;
+  }
+  return true;
+}
+
 bool LBRVelocityController::reference_command_interfaces_() {
   try {
     for (auto &command_interface : command_interfaces_) {
-      if (command_interface.get_name() == hardware_interface::HW_IF_POSITION) {
+      if (command_interface.get_interface_name() == hardware_interface::HW_IF_POSITION) {
         position_command_interfaces_.emplace_back(std::ref(command_interface));
       }
+    }
+    if (position_command_interfaces_.size() != lbr_fri_ros2::LBR::JOINT_DOF) {
+      RCLCPP_ERROR(get_node()->get_logger(), "Expected %d position command interfaces, got %lu.",
+                   lbr_fri_ros2::LBR::JOINT_DOF, position_command_interfaces_.size());
+      return false;
     }
   } catch (const std::exception &e) {
     RCLCPP_ERROR(get_node()->get_logger(), "Failed to reference command interfaces.\n%s.",
@@ -142,12 +183,22 @@ bool LBRVelocityController::reference_command_interfaces_() {
 bool LBRVelocityController::reference_state_interfaces_() {
   try {
     for (auto &state_interface : state_interfaces_) {
-      if (state_interface.get_name() == hardware_interface::HW_IF_POSITION) {
+      if (state_interface.get_interface_name() == hardware_interface::HW_IF_POSITION) {
         position_state_interfaces_.emplace_back(std::ref(state_interface));
       }
-      if (state_interface.get_name() == hardware_interface::HW_IF_VELOCITY) {
+      if (state_interface.get_interface_name() == hardware_interface::HW_IF_VELOCITY) {
         velocity_state_interfaces_.emplace_back(std::ref(state_interface));
       }
+    }
+    if (position_state_interfaces_.size() != lbr_fri_ros2::LBR::JOINT_DOF) {
+      RCLCPP_ERROR(get_node()->get_logger(), "Expected %d position state interfaces, got %lu.",
+                   lbr_fri_ros2::LBR::JOINT_DOF, position_state_interfaces_.size());
+      return false;
+    }
+    if (velocity_state_interfaces_.size() != lbr_fri_ros2::LBR::JOINT_DOF) {
+      RCLCPP_ERROR(get_node()->get_logger(), "Expected %d velocity state interfaces, got %lu.",
+                   lbr_fri_ros2::LBR::JOINT_DOF, velocity_state_interfaces_.size());
+      return false;
     }
   } catch (const std::exception &e) {
     RCLCPP_ERROR(get_node()->get_logger(), "Failed to reference state interfaces.\n%s.", e.what());
