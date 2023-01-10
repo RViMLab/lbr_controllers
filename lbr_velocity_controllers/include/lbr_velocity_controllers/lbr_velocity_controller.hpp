@@ -1,5 +1,5 @@
-#ifndef TMP_NAME_H_
-#define TMP_NAME_H_
+#ifndef LBR_VELOCITY_CONTROLLERS__LBR_VELOCITY_CONTROLLER_HPP_
+#define LBR_VELOCITY_CONTROLLERS__LBR_VELOCITY_CONTROLLER_HPP_
 
 #include <array>
 #include <memory>
@@ -7,7 +7,6 @@
 #include <string>
 #include <vector>
 
-#include "control_toolbox/filters.hpp"
 #include "controller_interface/controller_interface.hpp"
 #include "hardware_interface/loaned_command_interface.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
