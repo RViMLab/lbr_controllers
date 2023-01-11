@@ -1,0 +1,7 @@
+<library path="lbr_velocity_controllers">
+  <class name="lbr_velocity_controllers/LBRVelocityController" type="lbr_velocity_controllers::LBRVelocityController" base_class_type="controller_interface::ControllerInterface">
+  <description>
+    Velocity controller for LBR robots.
+  </description>
+  </class>
+</library>
