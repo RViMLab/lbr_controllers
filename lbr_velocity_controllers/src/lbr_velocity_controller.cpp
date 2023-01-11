@@ -48,7 +48,7 @@ LBRVelocityController::on_configure(const rclcpp_lifecycle::State & /*previous_s
   }
   joint_velocity_command_subscription_ =
       get_node()->create_subscription<std_msgs::msg::Float64MultiArray>(
-          "~/joint_velocity_command", rclcpp::SystemDefaultsQoS(),
+          "~/command", rclcpp::SystemDefaultsQoS(),
           [this](const std_msgs::msg::Float64MultiArray::SharedPtr joint_velocity_command) {
             if (joint_velocity_command->data.size() != lbr_fri_ros2::LBR::JOINT_DOF) {
               RCLCPP_ERROR(get_node()->get_logger(),
