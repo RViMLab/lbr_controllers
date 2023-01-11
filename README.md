@@ -4,7 +4,7 @@
 Clone all dependencies
 ```shell
 mkdir -p lbr_controllers_ws/src && \
-wget https://raw.githubusercontent.com/RViMLab/lbr_controllers/dev-humble/lbr_controllers/repos.yml -P lbr_controllers/src && \
+wget https://raw.githubusercontent.com/RViMLab/lbr_controllers/humble/lbr_controllers/repos.yml -P lbr_controllers/src && \
 vcs import lbr_controllers_ws/src < lbr_controllers_ws/src/repos.yml
 ```
 Build the controllers
