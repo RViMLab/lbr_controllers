@@ -11,55 +11,49 @@ namespace lbr_velocity_controllers {
 class VelocityControlRule {
 public:
   struct VelocityControlRuleParam {
-    VelocityControlRuleParam(const double &position_exp_smooth, const double &velocity_exp_smooth)
-        : position_exp_smooth(position_exp_smooth), velocity_exp_smooth(velocity_exp_smooth){};
-    VelocityControlRuleParam() : position_exp_smooth(0.01), velocity_exp_smooth(0.01){};
+    VelocityControlRuleParam(const double &period_exp_smooth, const double &position_exp_smooth,
+                             const double &velocity_exp_smooth,
+                             const double &desired_velocity_exp_smooth)
+        : period_exp_smooth(period_exp_smooth), position_exp_smooth(position_exp_smooth),
+          velocity_exp_smooth(velocity_exp_smooth),
+          desired_velocity_exp_smooth(desired_velocity_exp_smooth){};
+    VelocityControlRuleParam()
+        : period_exp_smooth(0.02), position_exp_smooth(0.02), velocity_exp_smooth(0.02),
+          desired_velocity_exp_smooth(0.02){};
 
+    double period_exp_smooth;
     double position_exp_smooth;
     double velocity_exp_smooth;
+    double desired_velocity_exp_smooth;
   };
 
   VelocityControlRule(const std::size_t &dof)
-      : smooth_desired_velocity_(dof, std::numeric_limits<double>::quiet_NaN()),
+      : smooth_period_(std::numeric_limits<double>::quiet_NaN()),
         smooth_position_(dof, std::numeric_limits<double>::quiet_NaN()),
-        smooth_velocity_(dof, std::numeric_limits<double>::quiet_NaN()){};
+        smooth_velocity_(dof, std::numeric_limits<double>::quiet_NaN()),
+        smooth_desired_velocity_(dof, std::numeric_limits<double>::quiet_NaN()){};
 
   // position, velocity
   bool compute(const std::vector<double> &current_position,
                const std::vector<double> &current_velocity,
                const std::vector<double> &desired_velocity, const double &period,
                std::vector<double> &position_command) {
-    if (desired_velocity.size() != smooth_desired_velocity_.size()) {
-      return false;
-    }
     if (current_position.size() != smooth_position_.size()) {
       return false;
     }
     if (current_velocity.size() != smooth_velocity_.size()) {
       return false;
     }
+    if (desired_velocity.size() != smooth_desired_velocity_.size()) {
+      return false;
+    }
+    exponential_smoothing_(period, param_.period_exp_smooth, smooth_period_);
     for (std::size_t i = 0; i < current_position.size(); ++i) {
-      if (std::isnan(smooth_desired_velocity_[i])) {
-        smooth_desired_velocity_[i] = desired_velocity[i];
-      } else {
-        smooth_desired_velocity_[i] =
-            filters::exponentialSmoothing(desired_velocity[i], smooth_desired_velocity_[i],
-                                          param_.velocity_exp_smooth // TODO: replace!
-            );
-      }
-      if (std::isnan(smooth_position_[i])) {
-        smooth_position_[i] = current_position[i];
-      } else {
-        smooth_position_[i] = filters::exponentialSmoothing(
-            current_position[i], smooth_position_[i], param_.position_exp_smooth);
-      }
-      if (std::isnan(smooth_velocity_[i])) {
-        smooth_velocity_[i] = current_velocity[i];
-      } else {
-        smooth_velocity_[i] = filters::exponentialSmoothing(
-            current_velocity[i], smooth_velocity_[i], param_.velocity_exp_smooth);
-      }
-      position_command[i] = smooth_position_[i] + smooth_desired_velocity_[i] * period;
+      exponential_smoothing_(current_position[i], param_.position_exp_smooth, smooth_position_[i]);
+      exponential_smoothing_(current_velocity[i], param_.velocity_exp_smooth, smooth_velocity_[i]);
+      exponential_smoothing_(desired_velocity[i], param_.desired_velocity_exp_smooth,
+                             smooth_desired_velocity_[i]);
+      position_command[i] = smooth_position_[i] + smooth_desired_velocity_[i] * smooth_period_;
     }
     return true;
   };
@@ -68,10 +62,19 @@ public:
   inline VelocityControlRuleParam &param() { return param_; };
 
 protected:
+  void exponential_smoothing_(const double &raw, const double &alpha, double &smooth) {
+    if (std::isnan(smooth)) {
+      smooth = raw;
+    } else {
+      smooth = filters::exponentialSmoothing(raw, smooth, alpha);
+    }
+  }
+
   VelocityControlRuleParam param_;
-  std::vector<double> smooth_desired_velocity_;
+  double smooth_period_;
   std::vector<double> smooth_position_;
   std::vector<double> smooth_velocity_;
+  std::vector<double> smooth_desired_velocity_;
 };
 } // namespace lbr_velocity_controllers
 #endif // LBR_VELOCITY_CONTROLLERS__VELOCITY_CONTROL_RULE_HPP_

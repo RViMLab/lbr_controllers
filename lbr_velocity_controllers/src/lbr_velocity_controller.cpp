@@ -50,6 +50,12 @@ LBRVelocityController::on_configure(const rclcpp_lifecycle::State & /*previous_s
       get_node()->create_subscription<std_msgs::msg::Float64MultiArray>(
           "~/joint_velocity_command", rclcpp::SystemDefaultsQoS(),
           [this](const std_msgs::msg::Float64MultiArray::SharedPtr joint_velocity_command) {
+            if (joint_velocity_command->data.size() != lbr_fri_ros2::LBR::JOINT_DOF) {
+              RCLCPP_ERROR(get_node()->get_logger(),
+                           "Expected %d elements in joint velocity command, got %lu.",
+                           lbr_fri_ros2::LBR::JOINT_DOF, joint_velocity_command->data.size());
+              return;
+            }
             joint_velocity_command_rt_buffer_.writeFromNonRT(joint_velocity_command);
           });
   return controller_interface::CallbackReturn::SUCCESS;
@@ -89,8 +95,8 @@ LBRVelocityController::on_deactivate(const rclcpp_lifecycle::State & /*previous_
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
-controller_interface::return_type
-LBRVelocityController::update(const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/) {
+controller_interface::return_type LBRVelocityController::update(const rclcpp::Time & /*time*/,
+                                                                const rclcpp::Duration &period) {
   auto joint_velocity_command = joint_velocity_command_rt_buffer_.readFromRT();
   if (!joint_velocity_command || !(*joint_velocity_command)) {
     return controller_interface::return_type::OK;
@@ -105,9 +111,8 @@ LBRVelocityController::update(const rclcpp::Time & /*time*/, const rclcpp::Durat
     current_velocity_[i] = velocity_state_interfaces_[i].get().get_value();
     desired_velocity_[i] = (*joint_velocity_command)->data[i];
   }
-
-  velocity_control_rule_->compute(current_position_, current_velocity_, desired_velocity_, 0.01,
-                                  position_command_); // TODO: replace time!
+  velocity_control_rule_->compute(current_position_, current_velocity_, desired_velocity_,
+                                  period.seconds(), position_command_);
   for (uint8_t i = 0; i < lbr_fri_ros2::LBR::JOINT_DOF; ++i) {
     position_command_interfaces_[i].get().set_value(position_command_[i]);
   }
