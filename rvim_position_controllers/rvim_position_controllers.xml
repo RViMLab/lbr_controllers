@@ -1,8 +1,0 @@
-<library path="rvim_position_controllers">
-  <!-- hand guide position controller -->
-  <class name="rvim_position_controllers/HandGuidePositionController" type="rvim_position_controllers::HandGuidePositionController" base_class_type="controller_interface::ControllerInterface">
-    <description>
-      Hand guide controller, solves QP avoiding forces that are externally applied to the end effector.
-    </description>
-  </class>
-</library>
