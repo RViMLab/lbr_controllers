@@ -1,0 +1,5 @@
+repositories:
+  lbr_controllers:
+    type: git
+    url: https://github.com/RViMLab/lbr_controllers.git
+    version: humble
