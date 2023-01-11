@@ -17,7 +17,7 @@ colcon build
 ## Example Usage
 
 ```shell
-source install/setup.bash --extend
+source install/setup.bash
 ros2 launch lbr_bringup lbr_bringup.launch.py model:=med7 controller_package:=lbr_velocity_controllers controller_file:=config/sample_config.yml controller:=lbr_velocity_controller
 ```
 
