@@ -2,7 +2,8 @@
 
 namespace lbr_velocity_controllers {
 LBRVelocityController::LBRVelocityController()
-    : velocity_control_rule_(std::make_unique<VelocityControlRule>(lbr_fri_ros2::LBR::JOINT_DOF)),
+    : on_set_parameter_callback_handle_ptr_(nullptr),
+      velocity_control_rule_(std::make_unique<VelocityControlRule>(lbr_fri_ros2::LBR::JOINT_DOF)),
       joint_velocity_command_rt_buffer_(nullptr), joint_velocity_command_subscription_(nullptr),
       command_interface_names_{hardware_interface::HW_IF_POSITION},
       state_interface_names_{hardware_interface::HW_IF_POSITION,
@@ -58,6 +59,37 @@ LBRVelocityController::on_configure(const rclcpp_lifecycle::State & /*previous_s
             }
             joint_velocity_command_rt_buffer_.writeFromNonRT(joint_velocity_command);
           });
+
+  on_set_parameter_callback_handle_ptr_ = get_node()->add_on_set_parameters_callback(
+      [this](const std::vector<rclcpp::Parameter> &parameters) {
+        rcl_interfaces::msg::SetParametersResult result;
+        result.successful = false;
+        for (const auto &param : parameters) {
+          if (param.get_name() == "desired_velocity_exp_smooth") {
+            velocity_control_rule_->param().desired_velocity_exp_smooth = param.as_double();
+            RCLCPP_INFO(get_node()->get_logger(), "Set desired_velocity_exp_smooth to %f.",
+                        velocity_control_rule_->param().desired_velocity_exp_smooth);
+          } else if (param.get_name() == "period_exp_smooth") {
+            velocity_control_rule_->param().period_exp_smooth = param.as_double();
+            RCLCPP_INFO(get_node()->get_logger(), "Set period_exp_smooth to %f.",
+                        velocity_control_rule_->param().period_exp_smooth);
+          } else if (param.get_name() == "position_exp_smooth") {
+            velocity_control_rule_->param().position_exp_smooth = param.as_double();
+            RCLCPP_INFO(get_node()->get_logger(), "Set position_exp_smooth to %f.",
+                        velocity_control_rule_->param().position_exp_smooth);
+          } else if (param.get_name() == "velocity_exp_smooth") {
+            velocity_control_rule_->param().velocity_exp_smooth = param.as_double();
+            RCLCPP_INFO(get_node()->get_logger(), "Set velocity_exp_smooth to %f.",
+                        velocity_control_rule_->param().velocity_exp_smooth);
+          } else {
+            result.successful = false;
+            result.reason = "Skipping unhandled parameter.";
+            RCLCPP_ERROR(get_node()->get_logger(), "Failed to set parameter: %s.",
+                         result.reason.c_str());
+          }
+        }
+        return result;
+      });
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
@@ -123,6 +155,18 @@ bool LBRVelocityController::declare_parameters_() {
   try {
     if (!get_node()->has_parameter("joints")) {
       get_node()->declare_parameter<std::vector<std::string>>("joints");
+    }
+    if (!get_node()->has_parameter("desired_velocity_exp_smooth")) {
+      get_node()->declare_parameter("desired_velocity_exp_smooth", 0.02);
+    }
+    if (!get_node()->has_parameter("period_exp_smooth")) {
+      get_node()->declare_parameter("period_exp_smooth", 0.02);
+    }
+    if (!get_node()->has_parameter("position_exp_smooth")) {
+      get_node()->declare_parameter("position_exp_smooth", 0.02);
+    }
+    if (!get_node()->has_parameter("velocity_exp_smooth")) {
+      get_node()->declare_parameter("velocity_exp_smooth", 0.02);
     }
   } catch (const std::exception &e) {
     RCLCPP_ERROR(get_node()->get_logger(), "Failed to declare parameters.\n%s.", e.what());

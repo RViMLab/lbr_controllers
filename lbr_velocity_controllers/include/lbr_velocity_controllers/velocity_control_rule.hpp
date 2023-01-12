@@ -18,8 +18,8 @@ public:
           velocity_exp_smooth(velocity_exp_smooth),
           desired_velocity_exp_smooth(desired_velocity_exp_smooth){};
     VelocityControlRuleParam()
-        : period_exp_smooth(0.03), position_exp_smooth(0.03), velocity_exp_smooth(0.03),
-          desired_velocity_exp_smooth(0.03){};
+        : period_exp_smooth(0.02), position_exp_smooth(0.02), velocity_exp_smooth(0.02),
+          desired_velocity_exp_smooth(0.02){};
 
     double period_exp_smooth;
     double position_exp_smooth;

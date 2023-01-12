@@ -9,11 +9,13 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(control_toolbox REQUIRED)
 find_package(controller_interface REQUIRED)
-find_package(pluginlib REQUIRED)
+find_package(hardware_interface REQUIRED)
+find_package(lbr_fri_ros2 REQUIRED)
+find_package(rcl_interfaces REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(realtime_tools REQUIRED)
-find_package(lbr_fri_ros2 REQUIRED)
+find_package(std_msgs REQUIRED)
 
 add_library(
   lbr_velocity_controllers
@@ -31,7 +33,7 @@ set(lbr_velocity_controllers_dependencies
   controller_interface
   hardware_interface
   lbr_fri_ros2
-  pluginlib
+  rcl_interfaces
   rclcpp
   rclcpp_lifecycle
   realtime_tools

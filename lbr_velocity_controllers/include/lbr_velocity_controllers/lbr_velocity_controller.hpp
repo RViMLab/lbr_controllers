@@ -12,6 +12,7 @@
 #include "hardware_interface/loaned_command_interface.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
+#include "rcl_interfaces/msg/set_parameters_result.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "realtime_tools/realtime_buffer.h"
@@ -49,6 +50,9 @@ protected:
   bool reference_state_interfaces_();
   bool clear_command_interfaces_();
   bool clear_state_interfaces_();
+
+  rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr
+      on_set_parameter_callback_handle_ptr_;
 
   std::unique_ptr<VelocityControlRule> velocity_control_rule_;
 
