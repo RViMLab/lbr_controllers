@@ -28,19 +28,15 @@ public:
 
   controller_interface::InterfaceConfiguration command_interface_configuration() const override;
   controller_interface::InterfaceConfiguration state_interface_configuration() const override;
-  controller_interface::CallbackReturn on_init() override;
+  controller_interface::return_type init(const std::string &controller_name) override;
 
-  controller_interface::CallbackReturn
-  on_configure(const rclcpp_lifecycle::State &previoud_state) override;
+  CallbackReturn on_configure(const rclcpp_lifecycle::State &previous_state) override;
 
-  controller_interface::CallbackReturn
-  on_activate(const rclcpp_lifecycle::State &previous_state) override;
+  CallbackReturn on_activate(const rclcpp_lifecycle::State &previous_state) override;
 
-  controller_interface::CallbackReturn
-  on_deactivate(const rclcpp_lifecycle::State &previous_state) override;
+  CallbackReturn on_deactivate(const rclcpp_lifecycle::State &previous_state) override;
 
-  controller_interface::return_type update(const rclcpp::Time &time,
-                                           const rclcpp::Duration &period) override;
+  controller_interface::return_type update() override;
 
 protected:
   bool declare_parameters_();
@@ -54,6 +50,7 @@ protected:
   rclcpp::node_interfaces::OnSetParametersCallbackHandle::SharedPtr
       on_set_parameter_callback_handle_ptr_;
 
+  double last_updated_;
   std::unique_ptr<VelocityControlRule> velocity_control_rule_;
 
   realtime_tools::RealtimeBuffer<std_msgs::msg::Float64MultiArray::SharedPtr>

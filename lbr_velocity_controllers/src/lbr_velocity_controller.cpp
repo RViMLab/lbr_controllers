@@ -35,17 +35,18 @@ LBRVelocityController::state_interface_configuration() const {
   }
   return interface_configuration;
 }
-controller_interface::CallbackReturn LBRVelocityController::on_init() {
+controller_interface::return_type
+LBRVelocityController::init(const std::string & /*controller_name*/) {
   if (!declare_parameters_()) {
-    return controller_interface::CallbackReturn::ERROR;
+    return controller_interface::return_type::ERROR;
   }
-  return controller_interface::CallbackReturn::SUCCESS;
+  return controller_interface::return_type::OK;
 }
 
-controller_interface::CallbackReturn
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 LBRVelocityController::on_configure(const rclcpp_lifecycle::State & /*previous_state*/) {
   if (!read_parameters_()) {
-    return controller_interface::CallbackReturn::ERROR;
+    return CallbackReturn::ERROR;
   }
   joint_velocity_command_subscription_ =
       get_node()->create_subscription<std_msgs::msg::Float64MultiArray>(
@@ -90,45 +91,45 @@ LBRVelocityController::on_configure(const rclcpp_lifecycle::State & /*previous_s
         }
         return result;
       });
-  return controller_interface::CallbackReturn::SUCCESS;
+  return CallbackReturn::SUCCESS;
 }
 
-controller_interface::CallbackReturn
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 LBRVelocityController::on_activate(const rclcpp_lifecycle::State & /*previous_state*/) {
   if (!init_rt_buffer_()) {
-    return controller_interface::CallbackReturn::ERROR;
+    return CallbackReturn::ERROR;
   }
   if (!clear_command_interfaces_()) {
-    return controller_interface::CallbackReturn::ERROR;
+    return CallbackReturn::ERROR;
   }
   if (!clear_state_interfaces_()) {
-    return controller_interface::CallbackReturn::ERROR;
+    return CallbackReturn::ERROR;
   }
   if (!reference_command_interfaces_()) {
-    return controller_interface::CallbackReturn::ERROR;
+    return CallbackReturn::ERROR;
   }
   if (!reference_state_interfaces_()) {
-    return controller_interface::CallbackReturn::ERROR;
+    return CallbackReturn::ERROR;
   }
-  return controller_interface::CallbackReturn::SUCCESS;
+  last_updated_ = std::numeric_limits<double>::quiet_NaN();
+  return CallbackReturn::SUCCESS;
 }
 
-controller_interface::CallbackReturn
+rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 LBRVelocityController::on_deactivate(const rclcpp_lifecycle::State & /*previous_state*/) {
   if (!init_rt_buffer_()) {
-    return controller_interface::CallbackReturn::ERROR;
+    return CallbackReturn::ERROR;
   }
   if (!clear_command_interfaces_()) {
-    return controller_interface::CallbackReturn::ERROR;
+    return CallbackReturn::ERROR;
   }
   if (!clear_state_interfaces_()) {
-    return controller_interface::CallbackReturn::ERROR;
+    return CallbackReturn::ERROR;
   }
-  return controller_interface::CallbackReturn::SUCCESS;
+  return CallbackReturn::SUCCESS;
 }
 
-controller_interface::return_type LBRVelocityController::update(const rclcpp::Time & /*time*/,
-                                                                const rclcpp::Duration &period) {
+controller_interface::return_type LBRVelocityController::update() {
   auto joint_velocity_command = joint_velocity_command_rt_buffer_.readFromRT();
   if (!joint_velocity_command || !(*joint_velocity_command)) {
     return controller_interface::return_type::OK;
@@ -143,8 +144,13 @@ controller_interface::return_type LBRVelocityController::update(const rclcpp::Ti
     current_velocity_[i] = velocity_state_interfaces_[i].get().get_value();
     desired_velocity_[i] = (*joint_velocity_command)->data[i];
   }
+  if (std::isnan(last_updated_)) {
+    last_updated_ = get_node()->now().seconds();
+    return controller_interface::return_type::OK;
+  }
   velocity_control_rule_->compute(current_position_, current_velocity_, desired_velocity_,
-                                  period.seconds(), position_command_);
+                                  get_node()->now().seconds() - last_updated_, position_command_);
+  last_updated_ = get_node()->now().seconds();
   for (uint8_t i = 0; i < lbr_fri_ros2::LBR::JOINT_DOF; ++i) {
     position_command_interfaces_[i].get().set_value(position_command_[i]);
   }
@@ -154,7 +160,7 @@ controller_interface::return_type LBRVelocityController::update(const rclcpp::Ti
 bool LBRVelocityController::declare_parameters_() {
   try {
     if (!get_node()->has_parameter("joints")) {
-      get_node()->declare_parameter<std::vector<std::string>>("joints");
+      get_node()->declare_parameter("joints");
     }
     if (!get_node()->has_parameter("desired_velocity_exp_smooth")) {
       get_node()->declare_parameter("desired_velocity_exp_smooth", 0.02);
