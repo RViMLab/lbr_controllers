@@ -1,0 +1,7 @@
+<library path="lbr_position_controllers">
+  <class name="lbr_position_controllers/PTPController" type="lbr_position_controllers::PTPController" base_class_type="controller_interface::ControllerInterface">
+  <description>
+    Point to point controller for LBR robots.
+  </description>
+  </class>
+</library>
