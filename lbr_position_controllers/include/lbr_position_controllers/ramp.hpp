@@ -2,36 +2,36 @@
 #define LBR_POSITION_CONTROLLERS__RAMP_HPP_
 
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 
 namespace lbr_position_controllers {
 class Ramp {
 public:
-  Ramp(double v_max, double a) {
-    if (a <= 0.) {
-      throw std::invalid_argument("Acceleration must be greater equal zero.");
-    }
-    if (v_max <= 0.) {
-      throw std::invalid_argument("Maximum velocity must be greater equal zero.");
-    }
-    v_max_ = v_max;
-    a_ = a;
-  }
+  Ramp()
+      : s_(std::numeric_limits<double>::quiet_NaN()),
+        v_max_(std::numeric_limits<double>::quiet_NaN()),
+        a_(std::numeric_limits<double>::quiet_NaN()), t0_(std::numeric_limits<double>::quiet_NaN()),
+        t1_(std::numeric_limits<double>::quiet_NaN()),
+        tend_(std::numeric_limits<double>::quiet_NaN()) {}
 
   double operator()(double t) {
+    if (std::isnan(t0_) || std::isnan(t1_) || std::isnan(tend_)) {
+      return 0.;
+    }
+
     if (t < 0.) {
       throw std::invalid_argument("Time must be greater zero.");
-    }
-    if (t > tend_) {
-      throw std::invalid_argument("Time must be smaller than end time.");
     }
 
     if (t < t0_) {
       return 0.5 * a_ * std::pow(t, 2);
     } else if (t < t1_) {
       return 0.5 * a_ * std::pow(t0_, 2) + v_max_ * (t - t0_);
-    } else {
+    } else if (t < tend_) {
       return s_ - 0.5 * a_ * std::pow(tend_ - t, 2);
+    } else {
+      return 0.;
     }
   }
 
@@ -61,6 +61,10 @@ public:
 protected:
   bool maximum_velocity_reached_() { return std::pow(v_max_, 2) / a_ < std::abs(s_); }
   void compute_times_() {
+    if (std::isnan(s_) || std::isnan(v_max_) || std::isnan(a_)) {
+      return;
+    }
+
     if (maximum_velocity_reached_()) {
       t0_ = std::sqrt(std::abs(s_) / a_);
       t1_ = t0_;

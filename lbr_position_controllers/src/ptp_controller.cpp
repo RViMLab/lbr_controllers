@@ -57,11 +57,11 @@ PTPController::on_configure(const rclcpp_lifecycle::State & /*previous_state*/) 
           if (param.get_name() == "velocity_scaling") {
             ramp_->set_v_max(param.as_double());
             RCLCPP_INFO(get_node()->get_logger(), "Set velocity_scaling to %f.",
-                        velocity_control_rule_->param().desired_velocity_exp_smooth);
+                        ramp_->get_v_max()); // urdf!
           } else if (param.get_name() == "acceleration_scaling") {
             ramp_->set_a(param.as_double());
             RCLCPP_INFO(get_node()->get_logger(), "Set acceleration_scaling to %f.",
-                        velocity_control_rule_->param().period_exp_smooth);
+                        ramp_->get_a()); // urdf!
           } else {
             result.successful = false;
             result.reason = "Skipping unhandled parameter.";
@@ -109,26 +109,8 @@ PTPController::on_deactivate(const rclcpp_lifecycle::State & /*previous_state*/)
 }
 
 controller_interface::return_type PTPController::update(const rclcpp::Time & /*time*/,
-                                                        const rclcpp::Duration &period) {
-  auto joint_velocity_command = joint_velocity_command_rt_buffer_.readFromRT();
-  if (!joint_velocity_command || !(*joint_velocity_command)) {
-    return controller_interface::return_type::OK;
-  }
-  if ((*joint_velocity_command)->data.size() != desired_velocity_.size()) {
-    RCLCPP_ERROR(get_node()->get_logger(), "Expected velocity command of size %lu, got %lu.",
-                 desired_velocity_.size(), (*joint_velocity_command)->data.size());
-    return controller_interface::return_type::ERROR;
-  }
-  for (uint8_t i = 0; i < lbr_fri_ros2::LBR::JOINT_DOF; ++i) {
-    current_position_[i] = position_state_interfaces_[i].get().get_value();
-    current_velocity_[i] = velocity_state_interfaces_[i].get().get_value();
-    desired_velocity_[i] = (*joint_velocity_command)->data[i];
-  }
-  velocity_control_rule_->compute(current_position_, current_velocity_, desired_velocity_,
-                                  period.seconds(), position_command_);
-  for (uint8_t i = 0; i < lbr_fri_ros2::LBR::JOINT_DOF; ++i) {
-    position_command_interfaces_[i].get().set_value(position_command_[i]);
-  }
+                                                        const rclcpp::Duration & /*period*/) {
+
   return controller_interface::return_type::OK;
 }
 
@@ -170,10 +152,12 @@ bool PTPController::read_parameters_() {
       RCLCPP_ERROR(get_node()->get_logger(), "Failed to retrieve velocity scaling parameter.");
       return false;
     }
-    if (!get_node()->has_parameter("acceleration_scaling", acceleration_scaling_)) {
+    ramp_->set_v_max(get_node()->get_parameter("velocity_scaling").as_double()); // urdf!
+    if (!get_node()->has_parameter("acceleration_scaling")) {
       RCLCPP_ERROR(get_node()->get_logger(), "Failed to retrieve acceleration scaling parameter.");
       return false;
     }
+    ramp_->set_a(get_node()->get_parameter("acceleration_scaling").as_double()); // urdf!
   } catch (const std::exception &e) {
     RCLCPP_ERROR(get_node()->get_logger(), "Failed to read parameters.\n%s.", e.what());
     return false;
@@ -183,7 +167,7 @@ bool PTPController::read_parameters_() {
 
 bool PTPController::init_rt_buffer_() {
   try {
-    joint_velocity_command_rt_buffer_ =
+    position_command_rt_buffer_ =
         realtime_tools::RealtimeBuffer<std_msgs::msg::Float64MultiArray::SharedPtr>(nullptr);
   } catch (const std::exception &e) {
     RCLCPP_ERROR(get_node()->get_logger(), "Failed to initialize rt buffer.\n%s.", e.what());
