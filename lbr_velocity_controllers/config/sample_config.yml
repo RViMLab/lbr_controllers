@@ -11,10 +11,10 @@ controller_manager:
 lbr_velocity_controller:
   ros__parameters:
     command_interfaces:
-      - "position"
+      - position
     state_interfaces:
-      - "position"
-      - "velocity"
+      - position
+      - velocity
     joints:
       - lbr_joint_0
       - lbr_joint_1
