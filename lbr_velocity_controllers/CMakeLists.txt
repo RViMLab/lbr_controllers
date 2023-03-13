@@ -47,6 +47,24 @@ ament_target_dependencies(
 
 pluginlib_export_plugin_description_file(controller_interface lbr_velocity_controllers.xml)
 
+if(BUILD_TESTING)
+  find_package(ament_cmake_gmock REQUIRED)
+  find_package(controller_manager REQUIRED)
+  find_package(ros2_control_test_assets REQUIRED)
+
+  ament_add_gmock(test_load_lbr_velocity_controller
+    test/test_load_lbr_velocity_controller.cpp
+  )
+  target_link_libraries(test_load_lbr_velocity_controller
+    lbr_velocity_controllers
+  )
+  ament_target_dependencies(test_load_lbr_velocity_controller
+    controller_manager
+    hardware_interface
+    ros2_control_test_assets
+  )
+endif()
+
 install(
   DIRECTORY include/
   DESTINATION include
