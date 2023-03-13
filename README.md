@@ -18,7 +18,7 @@ colcon build
 
 ```shell
 source install/setup.bash
-ros2 launch lbr_bringup lbr_bringup.launch.py model:=med7 sim:=false controller_package:=lbr_velocity_controllers controller_file:=config/sample_config.yml controller:=lbr_velocity_controller
+ros2 launch lbr_bringup lbr_bringup.launch.py model:=med7 sim:=false controller_configurations_package:=lbr_velocity_controllers controller_configurations:=config/sample_config.yml controller:=lbr_velocity_controller
 ```
 
 ## Write a new controller
