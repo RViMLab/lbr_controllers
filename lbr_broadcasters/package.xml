@@ -11,6 +11,9 @@
 
   <depend>controller_interface</depend>
   <depend>geometry_msgs</depend>
+  <depend>hardware_interface</depend>
+  <depend>lbr_fri_ros2</depend>
+  <depend>lbr_hardware_interface</depend>
   <depend>pluginlib</depend>
   <depend>rclcpp</depend>
   <depend>rclcpp_lifecycle</depend>

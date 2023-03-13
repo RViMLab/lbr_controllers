@@ -9,6 +9,9 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(controller_interface REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(hardware_interface REQUIRED)
+find_package(lbr_fri_ros2 REQUIRED)
+find_package(lbr_hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
@@ -17,6 +20,9 @@ find_package(realtime_tools REQUIRED)
 set(lbr_broadcaster_dependencies
   controller_interface
   geometry_msgs
+  hardware_interface
+  lbr_fri_ros2
+  lbr_hardware_interface
   pluginlib
   rclcpp
   rclcpp_lifecycle
