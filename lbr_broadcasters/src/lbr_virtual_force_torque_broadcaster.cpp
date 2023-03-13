@@ -28,7 +28,12 @@ LBRVirtualForceTorqueBroadcaster::state_interface_configuration() const {
 controller_interface::CallbackReturn LBRVirtualForceTorqueBroadcaster::on_init() {}
 
 controller_interface::CallbackReturn
-LBRVirtualForceTorqueBroadcaster::on_configure(const rclcpp_lifecycle::State &previous_state) {}
+LBRVirtualForceTorqueBroadcaster::on_configure(const rclcpp_lifecycle::State &previous_state) {
+  if (!read_parameters_()) {
+    return controller_interface::CallbackReturn::ERROR;
+  }
+  return controller_interface::CallbackReturn::SUCCESS;
+}
 
 controller_interface::CallbackReturn
 LBRVirtualForceTorqueBroadcaster::on_activate(const rclcpp_lifecycle::State &previous_state) {
@@ -52,7 +57,37 @@ LBRVirtualForceTorqueBroadcaster::on_deactivate(const rclcpp_lifecycle::State &p
 controller_interface::return_type
 LBRVirtualForceTorqueBroadcaster::update(const rclcpp::Time &time, const rclcpp::Duration &period) {
   // compute j pseudo inverse times ext
-  RCLCPP_INFO(get_node()->get_logger(), "update");
+  RCLCPP_INFO(get_node()->get_logger(), "external torques: %f, %f, %f, %f, %f, %f, %f",
+              external_torque_state_interfaces_[0].get().get_value(),
+              external_torque_state_interfaces_[1].get().get_value(),
+              external_torque_state_interfaces_[2].get().get_value(),
+              external_torque_state_interfaces_[3].get().get_value(),
+              external_torque_state_interfaces_[4].get().get_value(),
+              external_torque_state_interfaces_[5].get().get_value(),
+              external_torque_state_interfaces_[6].get().get_value());
+  return controller_interface::return_type::OK;
+}
+
+bool LBRVirtualForceTorqueBroadcaster::read_parameters_() {
+  try {
+    if (!get_node()->get_parameter("joints", joint_names_)) {
+      RCLCPP_ERROR(get_node()->get_logger(), "Failed to retrieve joint names parameter.");
+      return false;
+    }
+    if (joint_names_.empty()) {
+      RCLCPP_ERROR(get_node()->get_logger(), "Empty joint parameter provided.");
+      return false;
+    }
+    if (joint_names_.size() != lbr_fri_ros2::LBR::JOINT_DOF) {
+      RCLCPP_ERROR(get_node()->get_logger(), "Expected %lu joint names, got %d.",
+                   joint_names_.size(), lbr_fri_ros2::LBR::JOINT_DOF);
+      return false;
+    }
+  } catch (const std::exception &e) {
+    RCLCPP_ERROR(get_node()->get_logger(), "Failed to read parameters.\n%s.", e.what());
+    return false;
+  }
+  return true;
 }
 
 bool LBRVirtualForceTorqueBroadcaster::reference_state_interfaces_() {

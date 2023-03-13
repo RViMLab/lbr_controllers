@@ -1,5 +1,5 @@
 <library path="lbr_broadcasters">
-  <class name="lbr_broadcasters/LBRVirtualForceTorqueBroadcaster" type="lbr_broadcasters::LBRVelocityController" base_class_type="controller_interface::ControllerInterface">
+  <class name="lbr_broadcasters/LBRVirtualForceTorqueBroadcaster" type="lbr_broadcasters::LBRVirtualForceTorqueBroadcaster" base_class_type="controller_interface::ControllerInterface">
   <description>
     Broadcasters for LBR robots.
   </description>

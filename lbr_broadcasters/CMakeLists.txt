@@ -42,7 +42,7 @@ ament_target_dependencies(lbr_broadcasters
   ${lbr_broadcaster_dependencies}
 )
 
-pluginlib_export_plugin_description_file(lbr_broadcasters lbr_broadcasters.xml)
+pluginlib_export_plugin_description_file(controller_interface lbr_broadcasters.xml)
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gmock REQUIRED)
@@ -72,6 +72,11 @@ install(
   EXPORT export_lbr_broadcasters
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
+)
+
+install(
+  DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}
 )
 
 ament_export_targets(export_lbr_broadcasters HAS_LIBRARY_TARGET)

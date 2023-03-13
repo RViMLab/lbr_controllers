@@ -41,6 +41,7 @@ public:
                                            const rclcpp::Duration &period) override;
 
 protected:
+  bool read_parameters_();
   bool reference_state_interfaces_();
   bool clear_state_interfaces_();
 
