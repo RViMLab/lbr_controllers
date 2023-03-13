@@ -4,12 +4,12 @@
 Clone all dependencies
 ```shell
 mkdir -p lbr_controllers_ws/src && \
-wget https://raw.githubusercontent.com/RViMLab/lbr_controllers/humble/lbr_controllers/repos.yml -P lbr_controllers_ws/src && \
+wget https://raw.githubusercontent.com/RViMLab/lbr_controllers/foxy/lbr_controllers/repos.yml -P lbr_controllers_ws/src && \
 vcs import lbr_controllers_ws/src < lbr_controllers_ws/src/repos.yml
 ```
 Build the controllers
 ```shell
-source /opt/ros/humble/setup.bash && \
+source /opt/ros/foxy/setup.bash && \
 cd lbr_controllers_ws && \
 colcon build
 ```
