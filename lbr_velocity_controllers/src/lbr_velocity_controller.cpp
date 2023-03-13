@@ -24,6 +24,7 @@ LBRVelocityController::command_interface_configuration() const {
   }
   return interface_configuration;
 }
+
 controller_interface::InterfaceConfiguration
 LBRVelocityController::state_interface_configuration() const {
   controller_interface::InterfaceConfiguration interface_configuration{
@@ -35,8 +36,14 @@ LBRVelocityController::state_interface_configuration() const {
   }
   return interface_configuration;
 }
+
 controller_interface::return_type
-LBRVelocityController::init(const std::string & /*controller_name*/) {
+LBRVelocityController::init(const std::string & controller_name) {
+  auto ret = ControllerInterface::init(controller_name);
+  if (ret != controller_interface::return_type::OK)
+  {
+    return ret;
+  }
   if (!declare_parameters_()) {
     return controller_interface::return_type::ERROR;
   }
