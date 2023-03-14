@@ -30,6 +30,11 @@ LBRVirtualForceTorqueBroadcaster::state_interface_configuration() const {
       interface_configuration.names.push_back(joint_name + "/" + state_interface_name);
     }
   }
+  interface_configuration.names.push_back(std::string("lbr_fri_sensor") +
+                                          "/" + // TODO: fix this hard-coded sensor name
+                                          lbr_hardware_interface::HW_IF_TIME_STAMP_SEC);
+  interface_configuration.names.push_back(std::string("lbr_fri_sensor") + "/" +
+                                          lbr_hardware_interface::HW_IF_TIME_STAMP_NANO_SEC);
   return interface_configuration;
 }
 
@@ -98,7 +103,12 @@ LBRVirtualForceTorqueBroadcaster::update(const rclcpp::Time & /*time*/,
   // publish force torque
   if (force_torque_realtime_publisher_->trylock()) {
     force_torque_msg_.header.frame_id = end_effector_name_;
-    // force_torque_msg_.header.stamp.
+    force_torque_msg_.header.stamp.sec = static_cast<int32_t>(
+        time_interface_map_.at(lbr_hardware_interface::HW_IF_TIME_STAMP_SEC).get().get_value());
+    force_torque_msg_.header.stamp.nanosec = static_cast<uint32_t>(
+        time_interface_map_.at(lbr_hardware_interface::HW_IF_TIME_STAMP_NANO_SEC)
+            .get()
+            .get_value());
     force_torque_msg_.wrench.force.x = force_torque_[0];
     force_torque_msg_.wrench.force.y = force_torque_[1];
     force_torque_msg_.wrench.force.z = force_torque_[2];
@@ -164,6 +174,12 @@ bool LBRVirtualForceTorqueBroadcaster::reference_state_interfaces_() {
       if (state_interface.get_interface_name() == lbr_hardware_interface::HW_IF_EXTERNAL_TORQUE) {
         external_torque_state_interfaces_.emplace_back(std::ref(state_interface));
       }
+      if (state_interface.get_interface_name() == lbr_hardware_interface::HW_IF_TIME_STAMP_SEC ||
+          state_interface.get_interface_name() ==
+              lbr_hardware_interface::HW_IF_TIME_STAMP_NANO_SEC) {
+        time_interface_map_.emplace(state_interface.get_interface_name(),
+                                    std::ref(state_interface));
+      }
     }
     if (position_state_interfaces_.size() != lbr_fri_ros2::LBR::JOINT_DOF) {
       RCLCPP_ERROR(get_node()->get_logger(), "Expected %d position state interfaces, got %lu.",
@@ -187,6 +203,7 @@ bool LBRVirtualForceTorqueBroadcaster::reference_state_interfaces_() {
 bool LBRVirtualForceTorqueBroadcaster::clear_state_interfaces_() {
   position_state_interfaces_.clear();
   external_torque_state_interfaces_.clear();
+  time_interface_map_.clear();
   positions_.setConstant(std::numeric_limits<double>::quiet_NaN());
   external_torques_.setConstant(std::numeric_limits<double>::quiet_NaN());
   force_torque_.setConstant(std::numeric_limits<double>::quiet_NaN());
