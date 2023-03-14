@@ -23,6 +23,7 @@
   <depend>rclcpp</depend>
   <depend>rclcpp_lifecycle</depend>
   <depend>realtime_tools</depend>
+  <depend>lbr_controllers_msgs</depend>
 
   <exec_depend>kinematics_interface_kdl</exec_depend>
 

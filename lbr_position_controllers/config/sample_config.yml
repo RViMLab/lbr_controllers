@@ -24,5 +24,5 @@ lbr_switch_controller:
     external_torque_alpha: 0.1
     position_alpha: 0.005
     singular_damping: 0.15
-    cartesian_gains: [40., 40., 40., 0., 0., 0.]
+    cartesian_gains: [40., 0., 0., 0., 0., 0.]
     joint_gains: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]

@@ -26,6 +26,8 @@
 
 #include "lbr_position_controllers/pseudo_inverse.hpp"
 
+#include "lbr_controllers_msgs/srv/control_mode.hpp"
+
 namespace lbr_position_controllers {
 
 class LBRSwitchController : public controller_interface::ControllerInterface {
@@ -62,8 +64,17 @@ protected:
   bool clear_state_interfaces_();
   bool initialize_kinematics_();
 
-  bool admittance_control_(const double& dt);
-  bool configure_control_(const double& dt);
+  bool admittance_control_(const double &dt);
+  bool configure_control_(const double &dt);
+
+  void control_mode_service_callback_(
+      const lbr_controllers_msgs::srv::ControlMode::Request::SharedPtr request,
+      lbr_controllers_msgs::srv::ControlMode::Response::SharedPtr response);
+
+  rclcpp::Service<lbr_controllers_msgs::srv::ControlMode>::SharedPtr control_mode_service_;
+
+  std::shared_ptr<rclcpp::ParameterEventHandler> param_subscriber_;
+  std::shared_ptr<rclcpp::ParameterCallbackHandle> cartesian_gain_cb_handle_;
 
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr force_torque_publisher_;
   std::unique_ptr<realtime_tools::RealtimePublisher<geometry_msgs::msg::WrenchStamped>>
@@ -95,7 +106,7 @@ protected:
   Eigen::Matrix<double, lbr_fri_ros2::LBR::CARTESIAN_DOF, Eigen::Dynamic> jacobian_;
   Eigen::Matrix<double, Eigen::Dynamic, lbr_fri_ros2::LBR::CARTESIAN_DOF> jacobian_inv_;
 
-  std::atomic<CONTROL_MODE> control_mode_;
+  std::atomic<uint8_t> control_mode_;
 };
 
 } // end of namespace lbr_position_controllers

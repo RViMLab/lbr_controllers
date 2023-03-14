@@ -56,6 +56,22 @@ controller_interface::CallbackReturn LBRSwitchController::on_init() {
       std::make_unique<realtime_tools::RealtimePublisher<geometry_msgs::msg::WrenchStamped>>(
           force_torque_publisher_);
 
+  control_mode_service_ = get_node()->create_service<lbr_controllers_msgs::srv::ControlMode>(
+      "~/control_mode", std::bind(&LBRSwitchController::control_mode_service_callback_, this,
+                                  std::placeholders::_1, std::placeholders::_2));
+
+  param_subscriber_ =
+      std::make_shared<rclcpp::ParameterEventHandler>(get_node()->shared_from_this());
+  cartesian_gain_cb_handle_ = param_subscriber_->add_parameter_callback(
+      "cartesian_gains", [this](const rclcpp::Parameter &p) {
+        if (p.as_double_array().size() != lbr_fri_ros2::LBR::CARTESIAN_DOF) {
+          RCLCPP_ERROR(get_node()->get_logger(), "Invalid number of cartesian gains");
+          return;
+        }
+        cartesian_gains_ = Eigen::Vector<double, lbr_fri_ros2::LBR::CARTESIAN_DOF>::Map(
+            p.as_double_array().data());
+      });
+
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
@@ -107,14 +123,18 @@ controller_interface::return_type LBRSwitchController::update(const rclcpp::Time
     if (!admittance_control_(period.seconds())) {
       return controller_interface::return_type::ERROR;
     }
+    return controller_interface::return_type::OK;
   }
   case CONTROL_MODE::CONFIGURE: {
     if (!configure_control_(period.seconds())) {
       return controller_interface::return_type::ERROR;
     }
+    return controller_interface::return_type::OK;
   }
+  default:
+    RCLCPP_ERROR(get_node()->get_logger(), "Unknown control mode.");
+    return controller_interface::return_type::ERROR;
   }
-  return controller_interface::return_type::OK;
 }
 
 bool LBRSwitchController::read_parameters_() {
@@ -280,7 +300,7 @@ bool LBRSwitchController::initialize_kinematics_() {
   return true;
 }
 
-bool LBRSwitchController::admittance_control_(const double& dt) {
+bool LBRSwitchController::admittance_control_(const double &dt) {
 
   for (std::size_t i = 0; i < lbr_fri_ros2::LBR::JOINT_DOF; ++i) {
     if (std::isnan(positions_[i])) {
@@ -344,9 +364,20 @@ bool LBRSwitchController::admittance_control_(const double& dt) {
   return true;
 }
 
-bool LBRSwitchController::configure_control_(const double& dt) {
+bool LBRSwitchController::configure_control_(const double &dt) { return true; }
 
-  return true;
+void LBRSwitchController::control_mode_service_callback_(
+    const lbr_controllers_msgs::srv::ControlMode::Request::SharedPtr request,
+    lbr_controllers_msgs::srv::ControlMode::Response::SharedPtr response) {
+  try {
+    control_mode_ = request->control_mode;
+  } catch (const std::exception &e) {
+    RCLCPP_ERROR(get_node()->get_logger(), "Failed to set control mode.\n%s", e.what());
+    response->message = e.what();
+    response->success = false;
+    return;
+  }
+  response->success = true;
 }
 
 } // end of namespace lbr_position_controllers

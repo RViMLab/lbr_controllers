@@ -20,6 +20,7 @@ find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(realtime_tools REQUIRED)
+find_package(lbr_controllers_msgs REQUIRED)
 
 set(lbr_position_controllers_dependencies
   control_toolbox
@@ -34,6 +35,7 @@ set(lbr_position_controllers_dependencies
   rclcpp
   rclcpp_lifecycle
   realtime_tools
+  lbr_controllers_msgs
 )
 
 add_library(lbr_position_controllers
