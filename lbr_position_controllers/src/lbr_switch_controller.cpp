@@ -99,17 +99,17 @@ LBRSwitchController::on_deactivate(const rclcpp_lifecycle::State & /*previous_st
 }
 
 controller_interface::return_type LBRSwitchController::update(const rclcpp::Time & /*time*/,
-                                                                  const rclcpp::Duration &period) {
+                                                              const rclcpp::Duration &period) {
   switch (control_mode_) {
   case CONTROL_MODE::DISABLED:
     return controller_interface::return_type::OK;
   case CONTROL_MODE::ADMITTANCE: {
-    if (!admittance_control_()) {
+    if (!admittance_control_(period.seconds())) {
       return controller_interface::return_type::ERROR;
     }
   }
   case CONTROL_MODE::CONFIGURE: {
-    if (!configure_control_()) {
+    if (!configure_control_(period.seconds())) {
       return controller_interface::return_type::ERROR;
     }
   }
@@ -280,7 +280,7 @@ bool LBRSwitchController::initialize_kinematics_() {
   return true;
 }
 
-bool LBRSwitchController::admittance_control_() {
+bool LBRSwitchController::admittance_control_(const double& dt) {
 
   for (std::size_t i = 0; i < lbr_fri_ros2::LBR::JOINT_DOF; ++i) {
     if (std::isnan(positions_[i])) {
@@ -336,7 +336,7 @@ bool LBRSwitchController::admittance_control_() {
 
   // smooth update
   for (uint8_t i = 0; i < lbr_fri_ros2::LBR::JOINT_DOF; ++i) {
-    position_increment_[i] = filters::exponentialSmoothing(desired_velocity_[i] * period.seconds(),
+    position_increment_[i] = filters::exponentialSmoothing(desired_velocity_[i] * dt,
                                                            position_increment_[i], position_alpha_);
     position_command_interfaces_[i].get().set_value(positions_[i] + position_increment_[i]);
   }
@@ -344,7 +344,7 @@ bool LBRSwitchController::admittance_control_() {
   return true;
 }
 
-bool LBRSwitchController::configure_control_() {
+bool LBRSwitchController::configure_control_(const double& dt) {
 
   return true;
 }

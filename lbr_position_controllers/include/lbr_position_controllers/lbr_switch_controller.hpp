@@ -62,8 +62,8 @@ protected:
   bool clear_state_interfaces_();
   bool initialize_kinematics_();
 
-  bool admittance_control_();
-  bool configure_control_();
+  bool admittance_control_(const double& dt);
+  bool configure_control_(const double& dt);
 
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr force_torque_publisher_;
   std::unique_ptr<realtime_tools::RealtimePublisher<geometry_msgs::msg::WrenchStamped>>
