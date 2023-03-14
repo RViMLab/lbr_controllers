@@ -1,5 +1,5 @@
-#ifndef LBR_POSITION_CONTROLLERS__LBR_VIRTUAL_FORCE_TORQUE_BROADCASTER_HPP_
-#define LBR_POSITION_CONTROLLERS__LBR_VIRTUAL_FORCE_TORQUE_BROADCASTER_HPP_
+#ifndef LBR_POSITION_CONTROLLERS__LBR_SWITCH_CONTROLLER_HPP_
+#define LBR_POSITION_CONTROLLERS__LBR_SWITCH_CONTROLLER_HPP_
 
 #include <Eigen/Core>
 #include <array>
@@ -28,7 +28,7 @@
 
 namespace lbr_position_controllers {
 
-class LBRAdmittanceController : public controller_interface::ControllerInterface {
+class LBRSwitchController : public controller_interface::ControllerInterface {
   enum CONTROL_MODE {
     DISABLED,
     ADMITTANCE,
@@ -36,7 +36,7 @@ class LBRAdmittanceController : public controller_interface::ControllerInterface
   };
 
 public:
-  LBRAdmittanceController();
+  LBRSwitchController();
 
   controller_interface::InterfaceConfiguration command_interface_configuration() const override;
   controller_interface::InterfaceConfiguration state_interface_configuration() const override;
@@ -99,4 +99,4 @@ protected:
 };
 
 } // end of namespace lbr_position_controllers
-#endif // LBR_POSITION_CONTROLLERS__LBR_VIRTUAL_FORCE_TORQUE_BROADCASTER_HPP_
+#endif // LBR_POSITION_CONTROLLERS__LBR_SWITCH_CONTROLLER_HPP_

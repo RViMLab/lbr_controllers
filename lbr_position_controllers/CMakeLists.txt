@@ -38,7 +38,7 @@ set(lbr_position_controllers_dependencies
 
 add_library(lbr_position_controllers
   SHARED
-    src/lbr_admittance_controller.cpp
+    src/lbr_switch_controller.cpp
 )
 
 target_include_directories(lbr_position_controllers
@@ -56,13 +56,13 @@ if(BUILD_TESTING)
   find_package(controller_manager REQUIRED)
   find_package(ros2_control_test_assets REQUIRED)
 
-  ament_add_gmock(test_load_lbr_admittance_controller
-    test/test_load_lbr_admittance_controller.cpp
+  ament_add_gmock(test_load_lbr_switch_controller
+    test/test_load_lbr_switch_controller.cpp
   )
-  target_link_libraries(test_load_lbr_admittance_controller
+  target_link_libraries(test_load_lbr_switch_controller
     lbr_position_controllers
   )
-  ament_target_dependencies(test_load_lbr_admittance_controller
+  ament_target_dependencies(test_load_lbr_switch_controller
     controller_manager
     hardware_interface
     ros2_control_test_assets

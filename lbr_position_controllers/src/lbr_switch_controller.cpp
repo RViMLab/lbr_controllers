@@ -1,8 +1,8 @@
-#include "lbr_position_controllers/lbr_admittance_controller.hpp"
+#include "lbr_position_controllers/lbr_switch_controller.hpp"
 
 namespace lbr_position_controllers {
 
-LBRAdmittanceController::LBRAdmittanceController()
+LBRSwitchController::LBRSwitchController()
     : force_torque_publisher_(nullptr), force_torque_realtime_publisher_(nullptr),
       state_interface_names_{lbr_hardware_interface::HW_IF_EXTERNAL_TORQUE,
                              hardware_interface::HW_IF_POSITION},
@@ -23,7 +23,7 @@ LBRAdmittanceController::LBRAdmittanceController()
 }
 
 controller_interface::InterfaceConfiguration
-LBRAdmittanceController::command_interface_configuration() const {
+LBRSwitchController::command_interface_configuration() const {
   controller_interface::InterfaceConfiguration interface_configuration;
   interface_configuration.type = controller_interface::interface_configuration_type::INDIVIDUAL;
   for (const auto &joint_name : joint_names_) {
@@ -33,7 +33,7 @@ LBRAdmittanceController::command_interface_configuration() const {
 }
 
 controller_interface::InterfaceConfiguration
-LBRAdmittanceController::state_interface_configuration() const {
+LBRSwitchController::state_interface_configuration() const {
   controller_interface::InterfaceConfiguration interface_configuration;
   interface_configuration.type = controller_interface::interface_configuration_type::INDIVIDUAL;
   for (const auto &joint_name : joint_names_) {
@@ -49,7 +49,7 @@ LBRAdmittanceController::state_interface_configuration() const {
   return interface_configuration;
 }
 
-controller_interface::CallbackReturn LBRAdmittanceController::on_init() {
+controller_interface::CallbackReturn LBRSwitchController::on_init() {
   force_torque_publisher_ = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
       "~/force_torque", rclcpp::SystemDefaultsQoS());
   force_torque_realtime_publisher_ =
@@ -60,7 +60,7 @@ controller_interface::CallbackReturn LBRAdmittanceController::on_init() {
 }
 
 controller_interface::CallbackReturn
-LBRAdmittanceController::on_configure(const rclcpp_lifecycle::State & /*previous_state*/) {
+LBRSwitchController::on_configure(const rclcpp_lifecycle::State & /*previous_state*/) {
   if (!read_parameters_()) {
     return controller_interface::CallbackReturn::ERROR;
   }
@@ -71,7 +71,7 @@ LBRAdmittanceController::on_configure(const rclcpp_lifecycle::State & /*previous
 }
 
 controller_interface::CallbackReturn
-LBRAdmittanceController::on_activate(const rclcpp_lifecycle::State & /*previous_state*/) {
+LBRSwitchController::on_activate(const rclcpp_lifecycle::State & /*previous_state*/) {
   if (!clear_state_interfaces_()) {
     return controller_interface::CallbackReturn::ERROR;
   }
@@ -88,7 +88,7 @@ LBRAdmittanceController::on_activate(const rclcpp_lifecycle::State & /*previous_
 }
 
 controller_interface::CallbackReturn
-LBRAdmittanceController::on_deactivate(const rclcpp_lifecycle::State & /*previous_state*/) {
+LBRSwitchController::on_deactivate(const rclcpp_lifecycle::State & /*previous_state*/) {
   if (!clear_state_interfaces_()) {
     return controller_interface::CallbackReturn::ERROR;
   }
@@ -98,7 +98,7 @@ LBRAdmittanceController::on_deactivate(const rclcpp_lifecycle::State & /*previou
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
-controller_interface::return_type LBRAdmittanceController::update(const rclcpp::Time & /*time*/,
+controller_interface::return_type LBRSwitchController::update(const rclcpp::Time & /*time*/,
                                                                   const rclcpp::Duration &period) {
   switch (control_mode_) {
   case CONTROL_MODE::DISABLED:
@@ -117,7 +117,7 @@ controller_interface::return_type LBRAdmittanceController::update(const rclcpp::
   return controller_interface::return_type::OK;
 }
 
-bool LBRAdmittanceController::read_parameters_() {
+bool LBRSwitchController::read_parameters_() {
   try {
     if (!get_node()->get_parameter("joints", joint_names_)) {
       RCLCPP_ERROR(get_node()->get_logger(), "Failed to retrieve joint names parameter.");
@@ -195,7 +195,7 @@ bool LBRAdmittanceController::read_parameters_() {
   return true;
 }
 
-bool LBRAdmittanceController::reference_command_interfaces_() {
+bool LBRSwitchController::reference_command_interfaces_() {
   try {
     for (auto &command_interface : command_interfaces_) {
       if (command_interface.get_interface_name() == hardware_interface::HW_IF_POSITION) {
@@ -215,7 +215,7 @@ bool LBRAdmittanceController::reference_command_interfaces_() {
   return true;
 }
 
-bool LBRAdmittanceController::reference_state_interfaces_() {
+bool LBRSwitchController::reference_state_interfaces_() {
   try {
     for (auto &state_interface : state_interfaces_) {
       if (state_interface.get_interface_name() == hardware_interface::HW_IF_POSITION) {
@@ -250,12 +250,12 @@ bool LBRAdmittanceController::reference_state_interfaces_() {
   return true;
 }
 
-bool LBRAdmittanceController::clear_command_interfaces_() {
+bool LBRSwitchController::clear_command_interfaces_() {
   position_command_interfaces_.clear();
   return true;
 }
 
-bool LBRAdmittanceController::clear_state_interfaces_() {
+bool LBRSwitchController::clear_state_interfaces_() {
   position_state_interfaces_.clear();
   external_torque_state_interfaces_.clear();
   time_interface_map_.clear();
@@ -265,7 +265,7 @@ bool LBRAdmittanceController::clear_state_interfaces_() {
   return true;
 }
 
-bool LBRAdmittanceController::initialize_kinematics_() {
+bool LBRSwitchController::initialize_kinematics_() {
   try {
     kinematics_loader_ =
         std::make_shared<pluginlib::ClassLoader<kinematics_interface::KinematicsInterface>>(
@@ -280,7 +280,7 @@ bool LBRAdmittanceController::initialize_kinematics_() {
   return true;
 }
 
-bool LBRAdmittanceController::admittance_control_() {
+bool LBRSwitchController::admittance_control_() {
 
   for (std::size_t i = 0; i < lbr_fri_ros2::LBR::JOINT_DOF; ++i) {
     if (std::isnan(positions_[i])) {
@@ -344,7 +344,7 @@ bool LBRAdmittanceController::admittance_control_() {
   return true;
 }
 
-bool LBRAdmittanceController::configure_control_() {
+bool LBRSwitchController::configure_control_() {
 
   return true;
 }
@@ -353,5 +353,5 @@ bool LBRAdmittanceController::configure_control_() {
 
 #include "pluginlib/class_list_macros.hpp"
 
-PLUGINLIB_EXPORT_CLASS(lbr_position_controllers::LBRAdmittanceController,
+PLUGINLIB_EXPORT_CLASS(lbr_position_controllers::LBRSwitchController,
                        controller_interface::ControllerInterface)

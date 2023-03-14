@@ -5,10 +5,10 @@ controller_manager:
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
-    lbr_admittance_controller:
-      type: lbr_position_controllers/LBRAdmittanceController
+    lbr_switch_controller:
+      type: lbr_position_controllers/LBRSwitchController
 
-lbr_admittance_controller:
+lbr_switch_controller:
   ros__parameters:
     joints:
       - lbr_joint_0
