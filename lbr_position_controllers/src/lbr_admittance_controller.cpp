@@ -11,7 +11,8 @@ LBRAdmittanceController::LBRAdmittanceController()
       position_alpha_(0.), external_torque_alpha_(0.),
       singular_damping_(std::numeric_limits<double>::infinity()),
       jacobian_(lbr_fri_ros2::LBR::CARTESIAN_DOF, lbr_fri_ros2::LBR::JOINT_DOF),
-      jacobian_inv_(lbr_fri_ros2::LBR::JOINT_DOF, lbr_fri_ros2::LBR::CARTESIAN_DOF) {
+      jacobian_inv_(lbr_fri_ros2::LBR::JOINT_DOF, lbr_fri_ros2::LBR::CARTESIAN_DOF),
+      control_mode_(CONTROL_MODE::DISABLED) {
   positions_.setConstant(std::numeric_limits<double>::quiet_NaN());
   external_torques_.setConstant(std::numeric_limits<double>::quiet_NaN());
   force_torque_.setZero();
@@ -99,65 +100,20 @@ LBRAdmittanceController::on_deactivate(const rclcpp_lifecycle::State & /*previou
 
 controller_interface::return_type LBRAdmittanceController::update(const rclcpp::Time & /*time*/,
                                                                   const rclcpp::Duration &period) {
-  for (std::size_t i = 0; i < lbr_fri_ros2::LBR::JOINT_DOF; ++i) {
-    if (std::isnan(positions_[i])) {
-      positions_[i] = position_state_interfaces_[i].get().get_value();
-    } else {
-      positions_[i] = filters::exponentialSmoothing(position_state_interfaces_[i].get().get_value(),
-                                                    positions_[i], position_alpha_);
-    }
-    if (std::isnan(external_torques_[i])) {
-      external_torques_[i] = external_torque_state_interfaces_[i].get().get_value();
-    } else {
-      external_torques_[i] =
-          filters::exponentialSmoothing(external_torque_state_interfaces_[i].get().get_value(),
-                                        external_torques_[i], external_torque_alpha_);
+  switch (control_mode_) {
+  case CONTROL_MODE::DISABLED:
+    return controller_interface::return_type::OK;
+  case CONTROL_MODE::ADMITTANCE: {
+    if (!admittance_control_()) {
+      return controller_interface::return_type::ERROR;
     }
   }
-
-  // calculate the Jacobian
-  kinematics_->calculate_jacobian(positions_, end_effector_name_, jacobian_);
-
-  // calculate the force torque
-  jacobian_inv_ = damped_leaste_squares(jacobian_, singular_damping_);
-  force_torque_ = jacobian_inv_.transpose() * external_torques_;
-  force_torque_ = force_torque_.NullaryExpr([this](const Eigen::Index &i) {
-    double sign = std::signbit(force_torque_[i]) ? -1.0 : 1.0;
-    return std::abs(force_torque_[i]) < sensitivity_offset_[i]
-               ? 0.0
-               : sign * (std::abs(force_torque_[i]) - sensitivity_offset_[i]);
-  });
-
-  // publish force torque
-  if (force_torque_realtime_publisher_->trylock()) {
-    force_torque_msg_.header.frame_id = end_effector_name_;
-    force_torque_msg_.header.stamp.sec = static_cast<int32_t>(
-        time_interface_map_.at(lbr_hardware_interface::HW_IF_TIME_STAMP_SEC).get().get_value());
-    force_torque_msg_.header.stamp.nanosec = static_cast<uint32_t>(
-        time_interface_map_.at(lbr_hardware_interface::HW_IF_TIME_STAMP_NANO_SEC)
-            .get()
-            .get_value());
-    force_torque_msg_.wrench.force.x = force_torque_[0];
-    force_torque_msg_.wrench.force.y = force_torque_[1];
-    force_torque_msg_.wrench.force.z = force_torque_[2];
-    force_torque_msg_.wrench.torque.x = force_torque_[3];
-    force_torque_msg_.wrench.torque.y = force_torque_[4];
-    force_torque_msg_.wrench.torque.z = force_torque_[5];
-    force_torque_realtime_publisher_->msg_ = force_torque_msg_;
-    force_torque_realtime_publisher_->unlockAndPublish();
+  case CONTROL_MODE::CONFIGURE: {
+    if (!configure_control_()) {
+      return controller_interface::return_type::ERROR;
+    }
   }
-
-  // compute position update
-  desired_velocity_ =
-      joint_gains_.asDiagonal() * jacobian_inv_ * cartesian_gains_.asDiagonal() * force_torque_;
-
-  // smooth update
-  for (uint8_t i = 0; i < lbr_fri_ros2::LBR::JOINT_DOF; ++i) {
-    position_increment_[i] = filters::exponentialSmoothing(desired_velocity_[i] * period.seconds(),
-                                                           position_increment_[i], position_alpha_);
-    position_command_interfaces_[i].get().set_value(positions_[i] + position_increment_[i]);
   }
-
   return controller_interface::return_type::OK;
 }
 
@@ -321,6 +277,75 @@ bool LBRAdmittanceController::initialize_kinematics_() {
     RCLCPP_ERROR(get_node()->get_logger(), "Failed to initialize kinematics.\n%s", e.what());
     return false;
   }
+  return true;
+}
+
+bool LBRAdmittanceController::admittance_control_() {
+
+  for (std::size_t i = 0; i < lbr_fri_ros2::LBR::JOINT_DOF; ++i) {
+    if (std::isnan(positions_[i])) {
+      positions_[i] = position_state_interfaces_[i].get().get_value();
+    } else {
+      positions_[i] = filters::exponentialSmoothing(position_state_interfaces_[i].get().get_value(),
+                                                    positions_[i], position_alpha_);
+    }
+    if (std::isnan(external_torques_[i])) {
+      external_torques_[i] = external_torque_state_interfaces_[i].get().get_value();
+    } else {
+      external_torques_[i] =
+          filters::exponentialSmoothing(external_torque_state_interfaces_[i].get().get_value(),
+                                        external_torques_[i], external_torque_alpha_);
+    }
+  }
+
+  // calculate the Jacobian
+  kinematics_->calculate_jacobian(positions_, end_effector_name_, jacobian_);
+
+  // calculate the force torque
+  jacobian_inv_ = damped_leaste_squares(jacobian_, singular_damping_);
+  force_torque_ = jacobian_inv_.transpose() * external_torques_;
+  force_torque_ = force_torque_.NullaryExpr([this](const Eigen::Index &i) {
+    double sign = std::signbit(force_torque_[i]) ? -1.0 : 1.0;
+    return std::abs(force_torque_[i]) < sensitivity_offset_[i]
+               ? 0.0
+               : sign * (std::abs(force_torque_[i]) - sensitivity_offset_[i]);
+  });
+
+  // publish force torque
+  if (force_torque_realtime_publisher_->trylock()) {
+    force_torque_msg_.header.frame_id = end_effector_name_;
+    force_torque_msg_.header.stamp.sec = static_cast<int32_t>(
+        time_interface_map_.at(lbr_hardware_interface::HW_IF_TIME_STAMP_SEC).get().get_value());
+    force_torque_msg_.header.stamp.nanosec = static_cast<uint32_t>(
+        time_interface_map_.at(lbr_hardware_interface::HW_IF_TIME_STAMP_NANO_SEC)
+            .get()
+            .get_value());
+    force_torque_msg_.wrench.force.x = force_torque_[0];
+    force_torque_msg_.wrench.force.y = force_torque_[1];
+    force_torque_msg_.wrench.force.z = force_torque_[2];
+    force_torque_msg_.wrench.torque.x = force_torque_[3];
+    force_torque_msg_.wrench.torque.y = force_torque_[4];
+    force_torque_msg_.wrench.torque.z = force_torque_[5];
+    force_torque_realtime_publisher_->msg_ = force_torque_msg_;
+    force_torque_realtime_publisher_->unlockAndPublish();
+  }
+
+  // compute position update
+  desired_velocity_ =
+      joint_gains_.asDiagonal() * jacobian_inv_ * cartesian_gains_.asDiagonal() * force_torque_;
+
+  // smooth update
+  for (uint8_t i = 0; i < lbr_fri_ros2::LBR::JOINT_DOF; ++i) {
+    position_increment_[i] = filters::exponentialSmoothing(desired_velocity_[i] * period.seconds(),
+                                                           position_increment_[i], position_alpha_);
+    position_command_interfaces_[i].get().set_value(positions_[i] + position_increment_[i]);
+  }
+
+  return true;
+}
+
+bool LBRAdmittanceController::configure_control_() {
+
   return true;
 }
 

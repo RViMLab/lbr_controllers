@@ -3,6 +3,7 @@
 
 #include <Eigen/Core>
 #include <array>
+#include <atomic>
 #include <limits>
 #include <memory>
 #include <stdexcept>
@@ -28,6 +29,12 @@
 namespace lbr_position_controllers {
 
 class LBRAdmittanceController : public controller_interface::ControllerInterface {
+  enum CONTROL_MODE {
+    DISABLED,
+    ADMITTANCE,
+    CONFIGURE,
+  };
+
 public:
   LBRAdmittanceController();
 
@@ -54,6 +61,9 @@ protected:
   bool clear_command_interfaces_();
   bool clear_state_interfaces_();
   bool initialize_kinematics_();
+
+  bool admittance_control_();
+  bool configure_control_();
 
   rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr force_torque_publisher_;
   std::unique_ptr<realtime_tools::RealtimePublisher<geometry_msgs::msg::WrenchStamped>>
@@ -84,6 +94,8 @@ protected:
   Eigen::Vector<double, lbr_fri_ros2::LBR::JOINT_DOF> joint_gains_;
   Eigen::Matrix<double, lbr_fri_ros2::LBR::CARTESIAN_DOF, Eigen::Dynamic> jacobian_;
   Eigen::Matrix<double, Eigen::Dynamic, lbr_fri_ros2::LBR::CARTESIAN_DOF> jacobian_inv_;
+
+  std::atomic<CONTROL_MODE> control_mode_;
 };
 
 } // end of namespace lbr_position_controllers
