@@ -60,6 +60,8 @@ protected:
       position_state_interfaces_;
   std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface>>
       external_torque_state_interfaces_;
+  std::map<std::string, std::reference_wrapper<hardware_interface::LoanedStateInterface>>
+      time_interface_map_;
 
   std::string kinematics_plugin_name_, end_effector_name_;
   std::shared_ptr<pluginlib::ClassLoader<kinematics_interface::KinematicsInterface>>

@@ -10,9 +10,6 @@ controller_manager:
 
 lbr_admittance_controller:
   ros__parameters:
-    state_interfaces:
-      - external_torque
-      - position
     joints:
       - lbr_joint_0
       - lbr_joint_1
