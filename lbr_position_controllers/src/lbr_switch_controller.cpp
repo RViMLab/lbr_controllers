@@ -6,10 +6,13 @@ LBRSwitchController::LBRSwitchController()
     : force_torque_publisher_(nullptr), force_torque_realtime_publisher_(nullptr),
       state_interface_names_{lbr_hardware_interface::HW_IF_EXTERNAL_TORQUE,
                              hardware_interface::HW_IF_POSITION},
-      sensitivity_offset_(lbr_fri_ros2::LBR::CARTESIAN_DOF,
-                          std::numeric_limits<double>::infinity()),
-      position_alpha_(0.), external_torque_alpha_(0.),
+      cartesian_sensitivity_offset_(lbr_fri_ros2::LBR::CARTESIAN_DOF,
+                                    std::numeric_limits<double>::infinity()),
+      joint_sensitivty_offset_(lbr_fri_ros2::LBR::JOINT_DOF,
+                               std::numeric_limits<double>::infinity()),
+      position_alpha_(0.), cartesian_external_torque_alpha_(0.), joint_external_torque_alpha_(0.),
       singular_damping_(std::numeric_limits<double>::infinity()),
+      joint_joint_gains_(lbr_fri_ros2::LBR::JOINT_DOF, 0.),
       jacobian_(lbr_fri_ros2::LBR::CARTESIAN_DOF, lbr_fri_ros2::LBR::JOINT_DOF),
       jacobian_inv_(lbr_fri_ros2::LBR::JOINT_DOF, lbr_fri_ros2::LBR::CARTESIAN_DOF),
       control_mode_(CONTROL_MODE::DISABLED) {
@@ -19,7 +22,7 @@ LBRSwitchController::LBRSwitchController()
   desired_velocity_.setZero();
   position_increment_.setZero();
   cartesian_gains_.setZero();
-  joint_gains_.setZero();
+  cartesian_joint_gains_.setZero();
 }
 
 controller_interface::InterfaceConfiguration
@@ -160,13 +163,24 @@ bool LBRSwitchController::read_parameters_() {
       RCLCPP_ERROR(get_node()->get_logger(), "Failed to retrieve end effector name parameter.");
       return false;
     }
-    if (!get_node()->get_parameter("sensitivity_offset", sensitivity_offset_)) {
+    if (!get_node()->get_parameter("cartesian_sensitivity_offset", cartesian_sensitivity_offset_)) {
       RCLCPP_ERROR(get_node()->get_logger(), "Failed to retrieve sensitivity offset parameter.");
       return false;
     }
-    if (sensitivity_offset_.size() != lbr_fri_ros2::LBR::CARTESIAN_DOF) {
+    if (cartesian_sensitivity_offset_.size() != lbr_fri_ros2::LBR::CARTESIAN_DOF) {
       RCLCPP_ERROR(get_node()->get_logger(), "Expected %d sensitivity offset values, got %lu.",
-                   lbr_fri_ros2::LBR::CARTESIAN_DOF, sensitivity_offset_.size());
+                   lbr_fri_ros2::LBR::CARTESIAN_DOF, cartesian_sensitivity_offset_.size());
+      return false;
+    }
+    if (!get_node()->get_parameter("joint_sensitivty_offset", joint_sensitivty_offset_)) {
+      RCLCPP_ERROR(get_node()->get_logger(),
+                   "Failed to retrieve joint sensitivity offset parameter.");
+      return false;
+    }
+    if (joint_sensitivty_offset_.size() != lbr_fri_ros2::LBR::JOINT_DOF) {
+      RCLCPP_ERROR(get_node()->get_logger(),
+                   "Expected %d joint sensitivity offset values, got %lu.",
+                   lbr_fri_ros2::LBR::JOINT_DOF, joint_sensitivty_offset_.size());
       return false;
     }
     if (!get_node()->get_parameter("position_alpha", position_alpha_)) {
@@ -175,8 +189,15 @@ bool LBRSwitchController::read_parameters_() {
                   "Failed to retrieve position alpha parameter. Using default value (0.0).");
       return false;
     }
-    if (!get_node()->get_parameter("external_torque_alpha", external_torque_alpha_)) {
-      external_torque_alpha_ = 0.;
+    if (!get_node()->get_parameter("cartesian_external_torque_alpha",
+                                   cartesian_external_torque_alpha_)) {
+      cartesian_external_torque_alpha_ = 0.;
+      RCLCPP_WARN(get_node()->get_logger(),
+                  "Failed to retrieve external torque alpha parameter. Using default value (0.0).");
+      return false;
+    }
+    if (!get_node()->get_parameter("joint_external_torque_alpha", joint_external_torque_alpha_)) {
+      joint_external_torque_alpha_ = 0.;
       RCLCPP_WARN(get_node()->get_logger(),
                   "Failed to retrieve external torque alpha parameter. Using default value (0.0).");
       return false;
@@ -195,19 +216,24 @@ bool LBRSwitchController::read_parameters_() {
                    lbr_fri_ros2::LBR::CARTESIAN_DOF, cartesian_gains_.size());
       return false;
     }
-    cartesian_gains_ =
-        Eigen::Vector<double, lbr_fri_ros2::LBR::CARTESIAN_DOF>::Map(cartesian_gains.data());
-    std::vector<double> joint_gains(lbr_fri_ros2::LBR::JOINT_DOF, 0.);
-    if (!get_node()->get_parameter("joint_gains", joint_gains)) {
+    if (!get_node()->get_parameter("joint_joint_gains", joint_joint_gains_)) {
       RCLCPP_ERROR(get_node()->get_logger(), "Failed to retrieve joint gains parameter.");
       return false;
     }
-    if (joint_gains.size() != lbr_fri_ros2::LBR::JOINT_DOF) {
-      RCLCPP_ERROR(get_node()->get_logger(), "Expected %d joint gains, got %lu.",
-                   lbr_fri_ros2::LBR::JOINT_DOF, joint_gains.size());
+    cartesian_gains_ =
+        Eigen::Vector<double, lbr_fri_ros2::LBR::CARTESIAN_DOF>::Map(cartesian_gains.data());
+    std::vector<double> cartesian_joint_gains(lbr_fri_ros2::LBR::JOINT_DOF, 0.);
+    if (!get_node()->get_parameter("cartesian_joint_gains", cartesian_joint_gains)) {
+      RCLCPP_ERROR(get_node()->get_logger(), "Failed to retrieve joint gains parameter.");
       return false;
     }
-    joint_gains_ = Eigen::Vector<double, lbr_fri_ros2::LBR::JOINT_DOF>::Map(joint_gains.data());
+    if (cartesian_joint_gains.size() != lbr_fri_ros2::LBR::JOINT_DOF) {
+      RCLCPP_ERROR(get_node()->get_logger(), "Expected %d joint gains, got %lu.",
+                   lbr_fri_ros2::LBR::JOINT_DOF, cartesian_joint_gains.size());
+      return false;
+    }
+    cartesian_joint_gains_ =
+        Eigen::Vector<double, lbr_fri_ros2::LBR::JOINT_DOF>::Map(cartesian_joint_gains.data());
   } catch (const std::exception &e) {
     RCLCPP_ERROR(get_node()->get_logger(), "Failed to read parameters.\n%s.", e.what());
     return false;
@@ -314,7 +340,7 @@ bool LBRSwitchController::admittance_control_(const double &dt) {
     } else {
       external_torques_[i] =
           filters::exponentialSmoothing(external_torque_state_interfaces_[i].get().get_value(),
-                                        external_torques_[i], external_torque_alpha_);
+                                        external_torques_[i], cartesian_external_torque_alpha_);
     }
   }
 
@@ -326,9 +352,9 @@ bool LBRSwitchController::admittance_control_(const double &dt) {
   force_torque_ = jacobian_inv_.transpose() * external_torques_;
   force_torque_ = force_torque_.NullaryExpr([this](const Eigen::Index &i) {
     double sign = std::signbit(force_torque_[i]) ? -1.0 : 1.0;
-    return std::abs(force_torque_[i]) < sensitivity_offset_[i]
+    return std::abs(force_torque_[i]) < cartesian_sensitivity_offset_[i]
                ? 0.0
-               : sign * (std::abs(force_torque_[i]) - sensitivity_offset_[i]);
+               : sign * (std::abs(force_torque_[i]) - cartesian_sensitivity_offset_[i]);
   });
 
   // publish force torque
@@ -351,8 +377,8 @@ bool LBRSwitchController::admittance_control_(const double &dt) {
   }
 
   // compute position update
-  desired_velocity_ =
-      joint_gains_.asDiagonal() * jacobian_inv_ * cartesian_gains_.asDiagonal() * force_torque_;
+  desired_velocity_ = cartesian_joint_gains_.asDiagonal() * jacobian_inv_ *
+                      cartesian_gains_.asDiagonal() * force_torque_;
 
   // smooth update
   for (uint8_t i = 0; i < lbr_fri_ros2::LBR::JOINT_DOF; ++i) {
@@ -364,7 +390,39 @@ bool LBRSwitchController::admittance_control_(const double &dt) {
   return true;
 }
 
-bool LBRSwitchController::configure_control_(const double &dt) { return true; }
+bool LBRSwitchController::configure_control_(const double &dt) {
+  // for (std::size_t i = 0; i < lbr_fri_ros2::LBR::JOINT_DOF; ++i) {
+  //   if (std::isnan(positions_[i])) {
+  //     positions_[i] = position_state_interfaces_[i].get().get_value();
+  //   } else {
+  //     positions_[i] = filters::exponentialSmoothing(position_state_interfaces_[i].get().get_value(),
+  //                                                   positions_[i], position_alpha_);
+  //   }
+  //   if (std::isnan(external_torques_[i])) {
+  //     external_torques_[i] = external_torque_state_interfaces_[i].get().get_value();
+  //   } else {
+  //     external_torques_[i] =
+  //         filters::exponentialSmoothing(external_torque_state_interfaces_[i].get().get_value(),
+  //                                       external_torques_[i], joint_external_torque_alpha_);
+  //   }
+  // }
+
+  // // compute position update
+  // desired_velocity_ = external_torques_.NullaryExpr([this](Eigen::Index i) {
+  //   double sign = std::signbit(external_torques_[i]) ? -1.0 : 1.0;
+  //   return std::abs(external_torques_[i]) < joint_sensitivty_offset_[i]
+  //              ? 0.0
+  //              : sign * (std::abs(external_torques_[i]) - joint_sensitivty_offset_[i]);
+  // });
+
+  // // smooth update
+  // for (uint8_t i = 0; i < lbr_fri_ros2::LBR::JOINT_DOF; ++i) {
+  //   position_command_interfaces_[i].get().set_value(positions_[i] + desired_velocity_[i] * dt *
+  //                                                                       joint_joint_gains_[i]);
+  // }
+
+  return true;
+}
 
 void LBRSwitchController::control_mode_service_callback_(
     const lbr_controllers_msgs::srv::ControlMode::Request::SharedPtr request,

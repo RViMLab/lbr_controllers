@@ -97,12 +97,14 @@ protected:
   std::unique_ptr<kinematics_interface::KinematicsInterface> kinematics_;
   Eigen::Vector<double, lbr_fri_ros2::LBR::JOINT_DOF> positions_, external_torques_,
       desired_velocity_, position_increment_;
-  std::vector<double> sensitivity_offset_;
+  std::vector<double> cartesian_sensitivity_offset_, joint_sensitivty_offset_;
   Eigen::Vector<double, lbr_fri_ros2::LBR::CARTESIAN_DOF> force_torque_;
   geometry_msgs::msg::WrenchStamped force_torque_msg_;
-  double position_alpha_, external_torque_alpha_, singular_damping_;
+  double position_alpha_, cartesian_external_torque_alpha_, joint_external_torque_alpha_,
+      singular_damping_;
   Eigen::Vector<double, lbr_fri_ros2::LBR::CARTESIAN_DOF> cartesian_gains_;
-  Eigen::Vector<double, lbr_fri_ros2::LBR::JOINT_DOF> joint_gains_;
+  Eigen::Vector<double, lbr_fri_ros2::LBR::JOINT_DOF> cartesian_joint_gains_;
+  std::vector<double> joint_joint_gains_;
   Eigen::Matrix<double, lbr_fri_ros2::LBR::CARTESIAN_DOF, Eigen::Dynamic> jacobian_;
   Eigen::Matrix<double, Eigen::Dynamic, lbr_fri_ros2::LBR::CARTESIAN_DOF> jacobian_inv_;
 
