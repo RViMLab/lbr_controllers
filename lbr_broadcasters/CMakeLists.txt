@@ -8,8 +8,11 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(controller_interface REQUIRED)
+find_package(eigen3_cmake_module REQUIRED)
+find_package(Eigen3)
 find_package(geometry_msgs REQUIRED)
 find_package(hardware_interface REQUIRED)
+find_package(kinematics_interface REQUIRED)
 find_package(lbr_fri_ros2 REQUIRED)
 find_package(lbr_hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
@@ -19,8 +22,10 @@ find_package(realtime_tools REQUIRED)
 
 set(lbr_broadcaster_dependencies
   controller_interface
+  Eigen3
   geometry_msgs
   hardware_interface
+  kinematics_interface
   lbr_fri_ros2
   lbr_hardware_interface
   pluginlib

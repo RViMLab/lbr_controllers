@@ -21,3 +21,7 @@ lbr_virtual_force_torque_broadcaster:
       - lbr_joint_4
       - lbr_joint_5
       - lbr_joint_6
+    kinematics_plugin: kinematics_interface_kdl/KinematicsInterfaceKDL
+    end_effector_name: lbr_link_ee
+    sensitivity_offset: [3.0, 3.0, 3.0, 1.5, 1.5, 1.5]
+    singular_damping: 0.2
