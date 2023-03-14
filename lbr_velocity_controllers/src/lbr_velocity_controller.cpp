@@ -267,7 +267,7 @@ bool LBRVelocityController::clear_state_interfaces_() {
 }
 } // end of namespace lbr_velocity_controllers
 
-#include <pluginlib/class_list_macros.hpp>
+#include "pluginlib/class_list_macros.hpp"
 
 PLUGINLIB_EXPORT_CLASS(lbr_velocity_controllers::LBRVelocityController,
                        controller_interface::ControllerInterface)

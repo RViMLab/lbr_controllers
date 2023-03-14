@@ -5,16 +5,14 @@ controller_manager:
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
-    lbr_velocity_controller:
-      type: lbr_velocity_controllers/LBRVelocityController
+    lbr_virtual_force_torque_broadcaster:
+      type: lbr_broadcasters/LBRVirtualForceTorqueBroadcaster
 
-lbr_velocity_controller:
+lbr_virtual_force_torque_broadcaster:
   ros__parameters:
-    command_interfaces:
-      - position
     state_interfaces:
+      - external_torque
       - position
-      - velocity
     joints:
       - lbr_joint_0
       - lbr_joint_1
