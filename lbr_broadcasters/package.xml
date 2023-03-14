@@ -8,16 +8,22 @@
   <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>eigen3_cmake_module</buildtool_depend>
+
+  <build_depend>eigen</build_depend>
 
   <depend>controller_interface</depend>
   <depend>geometry_msgs</depend>
   <depend>hardware_interface</depend>
+  <depend>kinematics_interface</depend>
   <depend>lbr_fri_ros2</depend>
   <depend>lbr_hardware_interface</depend>
   <depend>pluginlib</depend>
   <depend>rclcpp</depend>
   <depend>rclcpp_lifecycle</depend>
   <depend>realtime_tools</depend>
+
+  <exec_depend>kinematics_interface_kdl</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

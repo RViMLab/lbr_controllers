@@ -1,6 +1,7 @@
 #ifndef LBR_BROADCASTERS__LBR_VIRTUAL_FORCE_TORQUE_BROADCASTER_HPP_
 #define LBR_BROADCASTERS__LBR_VIRTUAL_FORCE_TORQUE_BROADCASTER_HPP_
 
+#include <Eigen/Core>
 #include <array>
 #include <limits>
 #include <memory>
@@ -12,11 +13,15 @@
 #include "geometry_msgs/msg/wrench_stamped.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
+#include "kinematics_interface/kinematics_interface.hpp"
+#include "pluginlib/class_loader.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "realtime_tools/realtime_publisher.h"
 
 #include "lbr_fri_ros2/lbr.hpp"
 #include "lbr_hardware_interface/lbr_hardware_interface_type_values.hpp"
+
+#include "lbr_broadcasters/pseudo_inverse.hpp"
 
 namespace lbr_broadcasters {
 
@@ -44,17 +49,29 @@ protected:
   bool read_parameters_();
   bool reference_state_interfaces_();
   bool clear_state_interfaces_();
+  bool initialize_kinematics_();
 
-  rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr virtual_force_torque_publisher_;
+  rclcpp::Publisher<geometry_msgs::msg::WrenchStamped>::SharedPtr force_torque_publisher_;
   std::unique_ptr<realtime_tools::RealtimePublisher<geometry_msgs::msg::WrenchStamped>>
-      virtual_force_torque_realtime_publisher_;
+      force_torque_realtime_publisher_;
   std::array<std::string, 2> state_interface_names_;
   std::vector<std::string> joint_names_;
   std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface>>
       position_state_interfaces_;
   std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface>>
       external_torque_state_interfaces_;
+
+  std::string kinematics_plugin_name_, end_effector_name_;
+  std::shared_ptr<pluginlib::ClassLoader<kinematics_interface::KinematicsInterface>>
+      kinematics_loader_;
+  std::unique_ptr<kinematics_interface::KinematicsInterface> kinematics_;
+  Eigen::Vector<double, lbr_fri_ros2::LBR::JOINT_DOF> positions_, external_torques_;
+  std::vector<double> sensitivity_offset_;
+  Eigen::Vector<double, lbr_fri_ros2::LBR::CARTESIAN_DOF> force_torque_;
+  geometry_msgs::msg::WrenchStamped force_torque_msg_;
+  double singular_damping_;
+  Eigen::Matrix<double, lbr_fri_ros2::LBR::CARTESIAN_DOF, Eigen::Dynamic> jacobian_;
 };
 
 } // end of namespace lbr_broadcasters
-#endif
+#endif // LBR_BROADCASTERS__LBR_VIRTUAL_FORCE_TORQUE_BROADCASTER_HPP_
