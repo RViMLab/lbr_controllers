@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(lbr_broadcasters)
+project(lbr_position_controllers)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -20,7 +20,7 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
 find_package(realtime_tools REQUIRED)
 
-set(lbr_broadcaster_dependencies
+set(lbr_position_controllers_dependencies
   controller_interface
   Eigen3
   geometry_msgs
@@ -34,33 +34,33 @@ set(lbr_broadcaster_dependencies
   realtime_tools
 )
 
-add_library(lbr_broadcasters
+add_library(lbr_position_controllers
   SHARED
-    src/lbr_virtual_force_torque_broadcaster.cpp
+    src/lbr_admittance_controller.cpp
 )
 
-target_include_directories(lbr_broadcasters
+target_include_directories(lbr_position_controllers
   PRIVATE include
 )
 
-ament_target_dependencies(lbr_broadcasters
-  ${lbr_broadcaster_dependencies}
+ament_target_dependencies(lbr_position_controllers
+  ${lbr_position_controllers_dependencies}
 )
 
-pluginlib_export_plugin_description_file(controller_interface lbr_broadcasters.xml)
+pluginlib_export_plugin_description_file(controller_interface lbr_position_controllers.xml)
 
 if(BUILD_TESTING)
   find_package(ament_cmake_gmock REQUIRED)
   find_package(controller_manager REQUIRED)
   find_package(ros2_control_test_assets REQUIRED)
 
-  ament_add_gmock(test_load_lbr_virtual_force_torque_broadcaster
-    test/test_load_lbr_virtual_force_torque_broadcaster.cpp
+  ament_add_gmock(test_load_lbr_admittance_controller
+    test/test_load_lbr_admittance_controller.cpp
   )
-  target_link_libraries(test_load_lbr_virtual_force_torque_broadcaster
-    lbr_broadcasters
+  target_link_libraries(test_load_lbr_admittance_controller
+    lbr_position_controllers
   )
-  ament_target_dependencies(test_load_lbr_virtual_force_torque_broadcaster
+  ament_target_dependencies(test_load_lbr_admittance_controller
     controller_manager
     hardware_interface
     ros2_control_test_assets
@@ -73,8 +73,8 @@ install(
 )
 
 install(
-  TARGETS lbr_broadcasters
-  EXPORT export_lbr_broadcasters
+  TARGETS lbr_position_controllers
+  EXPORT export_lbr_position_controllers
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
 )
@@ -84,7 +84,7 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
-ament_export_targets(export_lbr_broadcasters HAS_LIBRARY_TARGET)
-ament_export_dependencies(${lbr_broadcaster_dependencies})
+ament_export_targets(export_lbr_position_controllers HAS_LIBRARY_TARGET)
+ament_export_dependencies(${lbr_position_controllers_dependencies})
 
 ament_package()

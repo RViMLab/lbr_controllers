@@ -1,0 +1,7 @@
+<library path="lbr_position_controllers">
+  <class name="lbr_position_controllers/LBRAdmittanceController" type="lbr_position_controllers::LBRAdmittanceController" base_class_type="controller_interface::ControllerInterface">
+  <description>
+    Broadcasters for LBR robots.
+  </description>
+  </class>
+</library>

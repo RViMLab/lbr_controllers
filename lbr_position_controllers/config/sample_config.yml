@@ -5,10 +5,10 @@ controller_manager:
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
-    lbr_virtual_force_torque_broadcaster:
-      type: lbr_broadcasters/LBRVirtualForceTorqueBroadcaster
+    lbr_admittance_controller:
+      type: lbr_position_controllers/LBRAdmittanceController
 
-lbr_virtual_force_torque_broadcaster:
+lbr_admittance_controller:
   ros__parameters:
     state_interfaces:
       - external_torque

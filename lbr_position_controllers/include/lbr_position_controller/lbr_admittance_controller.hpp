@@ -1,5 +1,5 @@
-#ifndef LBR_BROADCASTERS__LBR_VIRTUAL_FORCE_TORQUE_BROADCASTER_HPP_
-#define LBR_BROADCASTERS__LBR_VIRTUAL_FORCE_TORQUE_BROADCASTER_HPP_
+#ifndef LBR_POSITION_CONTROLLERS__LBR_VIRTUAL_FORCE_TORQUE_BROADCASTER_HPP_
+#define LBR_POSITION_CONTROLLERS__LBR_VIRTUAL_FORCE_TORQUE_BROADCASTER_HPP_
 
 #include <Eigen/Core>
 #include <array>
@@ -21,13 +21,13 @@
 #include "lbr_fri_ros2/lbr.hpp"
 #include "lbr_hardware_interface/lbr_hardware_interface_type_values.hpp"
 
-#include "lbr_broadcasters/pseudo_inverse.hpp"
+#include "lbr_position_controllers/pseudo_inverse.hpp"
 
-namespace lbr_broadcasters {
+namespace lbr_position_controllers {
 
-class LBRVirtualForceTorqueBroadcaster : public controller_interface::ControllerInterface {
+class LBRAdmittanceController : public controller_interface::ControllerInterface {
 public:
-  LBRVirtualForceTorqueBroadcaster();
+  LBRAdmittanceController();
 
   controller_interface::InterfaceConfiguration command_interface_configuration() const override;
   controller_interface::InterfaceConfiguration state_interface_configuration() const override;
@@ -73,5 +73,5 @@ protected:
   Eigen::Matrix<double, lbr_fri_ros2::LBR::CARTESIAN_DOF, Eigen::Dynamic> jacobian_;
 };
 
-} // end of namespace lbr_broadcasters
-#endif // LBR_BROADCASTERS__LBR_VIRTUAL_FORCE_TORQUE_BROADCASTER_HPP_
+} // end of namespace lbr_position_controllers
+#endif // LBR_POSITION_CONTROLLERS__LBR_VIRTUAL_FORCE_TORQUE_BROADCASTER_HPP_

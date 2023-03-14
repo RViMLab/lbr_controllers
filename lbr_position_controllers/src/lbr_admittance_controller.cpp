@@ -1,8 +1,8 @@
-#include "lbr_broadcasters/lbr_virtual_force_torque_broadcaster.hpp"
+#include "lbr_position_controllers/lbr_admittance_controller.hpp"
 
-namespace lbr_broadcasters {
+namespace lbr_position_controllers {
 
-LBRVirtualForceTorqueBroadcaster::LBRVirtualForceTorqueBroadcaster()
+LBRAdmittanceController::LBRAdmittanceController()
     : force_torque_publisher_(nullptr), force_torque_realtime_publisher_(nullptr),
       state_interface_names_{lbr_hardware_interface::HW_IF_EXTERNAL_TORQUE,
                              hardware_interface::HW_IF_POSITION},
@@ -16,13 +16,13 @@ LBRVirtualForceTorqueBroadcaster::LBRVirtualForceTorqueBroadcaster()
 }
 
 controller_interface::InterfaceConfiguration
-LBRVirtualForceTorqueBroadcaster::command_interface_configuration() const {
+LBRAdmittanceController::command_interface_configuration() const {
   return controller_interface::InterfaceConfiguration{
       controller_interface::interface_configuration_type::NONE};
 }
 
 controller_interface::InterfaceConfiguration
-LBRVirtualForceTorqueBroadcaster::state_interface_configuration() const {
+LBRAdmittanceController::state_interface_configuration() const {
   controller_interface::InterfaceConfiguration interface_configuration;
   interface_configuration.type = controller_interface::interface_configuration_type::INDIVIDUAL;
   for (const auto &joint_name : joint_names_) {
@@ -33,7 +33,7 @@ LBRVirtualForceTorqueBroadcaster::state_interface_configuration() const {
   return interface_configuration;
 }
 
-controller_interface::CallbackReturn LBRVirtualForceTorqueBroadcaster::on_init() {
+controller_interface::CallbackReturn LBRAdmittanceController::on_init() {
   force_torque_publisher_ = get_node()->create_publisher<geometry_msgs::msg::WrenchStamped>(
       "~/force_torque", rclcpp::SystemDefaultsQoS());
   force_torque_realtime_publisher_ =
@@ -44,7 +44,7 @@ controller_interface::CallbackReturn LBRVirtualForceTorqueBroadcaster::on_init()
 }
 
 controller_interface::CallbackReturn
-LBRVirtualForceTorqueBroadcaster::on_configure(const rclcpp_lifecycle::State & /*previous_state*/) {
+LBRAdmittanceController::on_configure(const rclcpp_lifecycle::State & /*previous_state*/) {
   if (!read_parameters_()) {
     return controller_interface::CallbackReturn::ERROR;
   }
@@ -55,7 +55,7 @@ LBRVirtualForceTorqueBroadcaster::on_configure(const rclcpp_lifecycle::State & /
 }
 
 controller_interface::CallbackReturn
-LBRVirtualForceTorqueBroadcaster::on_activate(const rclcpp_lifecycle::State & /*previous_state*/) {
+LBRAdmittanceController::on_activate(const rclcpp_lifecycle::State & /*previous_state*/) {
   if (!clear_state_interfaces_()) {
     return controller_interface::CallbackReturn::ERROR;
   }
@@ -65,7 +65,7 @@ LBRVirtualForceTorqueBroadcaster::on_activate(const rclcpp_lifecycle::State & /*
   return controller_interface::CallbackReturn::SUCCESS;
 }
 
-controller_interface::CallbackReturn LBRVirtualForceTorqueBroadcaster::on_deactivate(
+controller_interface::CallbackReturn LBRAdmittanceController::on_deactivate(
     const rclcpp_lifecycle::State & /*previous_state*/) {
   if (!clear_state_interfaces_()) {
     return controller_interface::CallbackReturn::ERROR;
@@ -74,7 +74,7 @@ controller_interface::CallbackReturn LBRVirtualForceTorqueBroadcaster::on_deacti
 }
 
 controller_interface::return_type
-LBRVirtualForceTorqueBroadcaster::update(const rclcpp::Time & /*time*/,
+LBRAdmittanceController::update(const rclcpp::Time & /*time*/,
                                          const rclcpp::Duration & /*period*/) {
   for (std::size_t i = 0; i < lbr_fri_ros2::LBR::JOINT_DOF; ++i) {
     positions_[i] = position_state_interfaces_[i].get().get_value();
@@ -112,7 +112,7 @@ LBRVirtualForceTorqueBroadcaster::update(const rclcpp::Time & /*time*/,
   return controller_interface::return_type::OK;
 }
 
-bool LBRVirtualForceTorqueBroadcaster::read_parameters_() {
+bool LBRAdmittanceController::read_parameters_() {
   try {
     if (!get_node()->get_parameter("joints", joint_names_)) {
       RCLCPP_ERROR(get_node()->get_logger(), "Failed to retrieve joint names parameter.");
@@ -155,7 +155,7 @@ bool LBRVirtualForceTorqueBroadcaster::read_parameters_() {
   return true;
 }
 
-bool LBRVirtualForceTorqueBroadcaster::reference_state_interfaces_() {
+bool LBRAdmittanceController::reference_state_interfaces_() {
   try {
     for (auto &state_interface : state_interfaces_) {
       if (state_interface.get_interface_name() == hardware_interface::HW_IF_POSITION) {
@@ -184,7 +184,7 @@ bool LBRVirtualForceTorqueBroadcaster::reference_state_interfaces_() {
   return true;
 }
 
-bool LBRVirtualForceTorqueBroadcaster::clear_state_interfaces_() {
+bool LBRAdmittanceController::clear_state_interfaces_() {
   position_state_interfaces_.clear();
   external_torque_state_interfaces_.clear();
   positions_.setConstant(std::numeric_limits<double>::quiet_NaN());
@@ -193,7 +193,7 @@ bool LBRVirtualForceTorqueBroadcaster::clear_state_interfaces_() {
   return true;
 }
 
-bool LBRVirtualForceTorqueBroadcaster::initialize_kinematics_() {
+bool LBRAdmittanceController::initialize_kinematics_() {
   try {
     kinematics_loader_ =
         std::make_shared<pluginlib::ClassLoader<kinematics_interface::KinematicsInterface>>(
@@ -208,9 +208,9 @@ bool LBRVirtualForceTorqueBroadcaster::initialize_kinematics_() {
   return true;
 }
 
-} // end of namespace lbr_broadcasters
+} // end of namespace lbr_position_controllers
 
 #include "pluginlib/class_list_macros.hpp"
 
-PLUGINLIB_EXPORT_CLASS(lbr_broadcasters::LBRVirtualForceTorqueBroadcaster,
+PLUGINLIB_EXPORT_CLASS(lbr_position_controllers::LBRAdmittanceController,
                        controller_interface::ControllerInterface)

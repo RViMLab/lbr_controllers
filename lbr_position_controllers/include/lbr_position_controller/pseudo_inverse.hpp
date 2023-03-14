@@ -1,5 +1,5 @@
-#ifndef LBR_BROADCASTERS__PSEUDO_INVERSE_HPP_
-#define LBR_BROADCASTERS__PSEUDO_INVERSE_HPP_
+#ifndef LBR_POSITION_CONTROLLERS__PSEUDO_INVERSE_HPP_
+#define LBR_POSITION_CONTROLLERS__PSEUDO_INVERSE_HPP_
 
 #include <Eigen/Core>
 
@@ -23,4 +23,4 @@ damped_leaste_squares(const MatT &mat, typename MatT::Scalar lambda =
   return svd.matrixV() * dampedSingularValuesInv * svd.matrixU().adjoint();
 };
 
-#endif // LBR_BROADCASTERS__PSEUDO_INVERSE_HPP_
+#endif // LBR_POSITION_CONTROLLERS__PSEUDO_INVERSE_HPP_
