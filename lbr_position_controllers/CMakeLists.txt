@@ -7,6 +7,7 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
+find_package(control_toolbox REQUIRED)
 find_package(controller_interface REQUIRED)
 find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3)
@@ -21,6 +22,7 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(realtime_tools REQUIRED)
 
 set(lbr_position_controllers_dependencies
+  control_toolbox
   controller_interface
   Eigen3
   geometry_msgs

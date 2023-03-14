@@ -9,8 +9,10 @@
 #include <string>
 #include <vector>
 
+#include "control_toolbox/filters.hpp"
 #include "controller_interface/controller_interface.hpp"
 #include "geometry_msgs/msg/wrench_stamped.hpp"
+#include "hardware_interface/loaned_command_interface.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
 #include "kinematics_interface/kinematics_interface.hpp"
@@ -47,7 +49,9 @@ public:
 
 protected:
   bool read_parameters_();
+  bool reference_command_interfaces_();
   bool reference_state_interfaces_();
+  bool clear_command_interfaces_();
   bool clear_state_interfaces_();
   bool initialize_kinematics_();
 
@@ -55,7 +59,10 @@ protected:
   std::unique_ptr<realtime_tools::RealtimePublisher<geometry_msgs::msg::WrenchStamped>>
       force_torque_realtime_publisher_;
   std::array<std::string, 2> state_interface_names_;
+
   std::vector<std::string> joint_names_;
+  std::vector<std::reference_wrapper<hardware_interface::LoanedCommandInterface>>
+      position_command_interfaces_;
   std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface>>
       position_state_interfaces_;
   std::vector<std::reference_wrapper<hardware_interface::LoanedStateInterface>>
@@ -67,12 +74,16 @@ protected:
   std::shared_ptr<pluginlib::ClassLoader<kinematics_interface::KinematicsInterface>>
       kinematics_loader_;
   std::unique_ptr<kinematics_interface::KinematicsInterface> kinematics_;
-  Eigen::Vector<double, lbr_fri_ros2::LBR::JOINT_DOF> positions_, external_torques_;
+  Eigen::Vector<double, lbr_fri_ros2::LBR::JOINT_DOF> positions_, external_torques_,
+      desired_velocity_, position_increment_;
   std::vector<double> sensitivity_offset_;
   Eigen::Vector<double, lbr_fri_ros2::LBR::CARTESIAN_DOF> force_torque_;
   geometry_msgs::msg::WrenchStamped force_torque_msg_;
-  double singular_damping_;
+  double position_alpha_, external_torque_alpha_, singular_damping_;
+  Eigen::Vector<double, lbr_fri_ros2::LBR::CARTESIAN_DOF> cartesian_gains_;
+  Eigen::Vector<double, lbr_fri_ros2::LBR::JOINT_DOF> joint_gains_;
   Eigen::Matrix<double, lbr_fri_ros2::LBR::CARTESIAN_DOF, Eigen::Dynamic> jacobian_;
+  Eigen::Matrix<double, Eigen::Dynamic, lbr_fri_ros2::LBR::CARTESIAN_DOF> jacobian_inv_;
 };
 
 } // end of namespace lbr_position_controllers
