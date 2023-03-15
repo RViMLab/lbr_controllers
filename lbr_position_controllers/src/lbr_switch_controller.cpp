@@ -308,6 +308,8 @@ bool LBRSwitchController::clear_state_interfaces_() {
   positions_.setConstant(std::numeric_limits<double>::quiet_NaN());
   external_torques_.setConstant(std::numeric_limits<double>::quiet_NaN());
   force_torque_.setZero();
+  desired_velocity_.setZero();
+  position_increment_.setZero();
   return true;
 }
 
