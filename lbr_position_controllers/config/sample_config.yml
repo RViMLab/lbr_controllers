@@ -1,0 +1,28 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 100
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    lbr_admittance_controller:
+      type: lbr_position_controllers/LBRAdmittanceController
+
+lbr_admittance_controller:
+  ros__parameters:
+    joints:
+      - lbr_joint_0
+      - lbr_joint_1
+      - lbr_joint_2
+      - lbr_joint_3
+      - lbr_joint_4
+      - lbr_joint_5
+      - lbr_joint_6
+    kinematics_plugin: kinematics_interface_kdl/KinematicsInterfaceKDL
+    end_effector_name: lbr_link_ee
+    sensitivity_offset: [2.0, 2.0, 10.0, 0.5, 0.5, 0.5]
+    external_torque_alpha: 0.01
+    position_alpha: 0.01
+    singular_damping: 0.1
+    cartesian_gains: [10., 0., 0., 0., 0., 0.]
+    joint_gains: [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]

@@ -32,8 +32,8 @@ TEST(TestLoadLBRVelocityController, load_controller) {
                                                ros2_control_test_assets::minimal_robot_urdf),
                                            executor, "test_controller_manager");
 
-  ASSERT_NO_THROW(cm.load_controller("test_lbr_virtual_force_torque_broadcaster",
-                                     "lbr_broadcasters/LBRVirtualForceTorqueBroadcaster"));
+  ASSERT_NO_THROW(cm.load_controller("test_lbr_admittance_controller",
+                                     "lbr_position_controllers/LBRAdmittanceController"));
 
   rclcpp::shutdown();
 }

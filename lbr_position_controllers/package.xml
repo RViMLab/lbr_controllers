@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>lbr_broadcasters</name>
+  <name>lbr_position_controllers</name>
   <version>1.0.0</version>
   <description>TODO: Package description</description>
   <maintainer email="martin.huber@kcl.ac.uk">mhubii</maintainer>
@@ -12,6 +12,9 @@
 
   <build_depend>eigen</build_depend>
 
+  <build_depend>eigen</build_depend>
+
+  <depend>control_toolbox</depend>
   <depend>controller_interface</depend>
   <depend>geometry_msgs</depend>
   <depend>hardware_interface</depend>
